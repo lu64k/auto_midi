@@ -39,19 +39,26 @@ def generate_events(
 ) -> list[DrumEvent]:
     events: list[DrumEvent] = []
     base_velocity = int(45 + intensity * 0.55)
+    previous_bar_events: list[DrumEvent] = []
 
     for bar in text_map.bars:
         accents = token_steps(bar)
         rests = punctuation_steps(bar)
-        events.extend(_low_events(bar, dna, rng, base_velocity, accents, rests))
-        events.extend(_mid_events(bar, dna, rng, base_velocity, accents, rests))
-        events.extend(_high_events(bar, dna, rng, base_velocity, accents, rests))
+        bar_events = []
+        bar_events.extend(_memory_events(bar, dna, rng, previous_bar_events))
+        bar_events.extend(_low_events(bar, dna, rng, base_velocity, accents, rests))
+        bar_events.extend(_mid_events(bar, dna, rng, base_velocity, accents, rests))
+        bar_events.extend(_high_events(bar, dna, rng, base_velocity, accents, rests))
 
         if should_fill(bar, dna, rng, fill):
-            events.extend(_fill_events(bar, dna, rng, base_velocity))
+            bar_events.extend(_fill_events(bar, dna, rng, base_velocity))
 
         if bar.index == 0 or bar.section != text_map.bars[bar.index - 1].section:
-            events.append(DrumEvent(bar.index, 0, "crash", _vel(base_velocity + 18, rng)))
+            bar_events.append(DrumEvent(bar.index, 0, "crash", _vel(base_velocity + 18, rng)))
+
+        bar_events = _apply_dynamic_shape(bar_events, dna)
+        events.extend(bar_events)
+        previous_bar_events = bar_events
 
     return sorted(_dedupe(events), key=lambda event: (event.absolute_tick, event.voice))
 
@@ -89,10 +96,14 @@ def _low_events(
     accents: set[int],
     rests: set[int],
 ) -> list[DrumEvent]:
-    events = [DrumEvent(bar.index, 0, "kick", _vel(base_velocity + 12, rng))]
+    events = []
+    for step, boost in _anchor_kick_steps(dna, rng):
+        events.append(DrumEvent(bar.index, step, "kick", _vel(base_velocity + boost, rng)))
+    if dna.kick_snare_lock > 0.55 and rng.random() < dna.kick_snare_lock * 0.5:
+        events.append(DrumEvent(bar.index, rng.choice([8, 10]), "kick", _vel(base_velocity + 2, rng)))
     candidates = [step for step in accents if step not in rests and step % 4 != 0]
     for step in candidates:
-        chance = dna.low_bias * dna.accent_follow
+        chance = dna.low_bias * dna.accent_follow * (1.2 - dna.kick_snare_lock * 0.45)
         if step in {3, 6, 10, 14}:
             chance += dna.syncopation * 0.25
         if rng.random() < chance * 0.55:
@@ -111,16 +122,24 @@ def _mid_events(
     accents: set[int],
     rests: set[int],
 ) -> list[DrumEvent]:
-    events = [
-        DrumEvent(bar.index, 4, "snare", _vel(base_velocity + 10, rng)),
-        DrumEvent(bar.index, 12, "snare", _vel(base_velocity + 8, rng)),
-    ]
+    events = []
+    for step, boost in _anchor_mid_steps(dna):
+        if rng.random() < 0.2 + dna.backbeat_weight * 0.8:
+            events.append(DrumEvent(bar.index, step, "snare", _vel(base_velocity + boost + int(dna.backbeat_weight * 8), rng)))
     for step in accents:
+        if dna.groove_anchor == "one_drop" and step == 0:
+            continue
         if step in rests or step in {4, 12}:
             continue
         if rng.random() < dna.mid_bias * dna.accent_follow * 0.28:
             voice = "clap" if rng.random() < 0.35 else "rim"
             events.append(DrumEvent(bar.index, step, voice, _vel(base_velocity - 10, rng), offset_ticks=_swing_offset(step, dna)))
+        elif rng.random() < dna.ghost_note_bias * 0.22:
+            voice = "rim" if rng.random() < 0.65 else "snare"
+            events.append(DrumEvent(bar.index, step, voice, _vel(base_velocity - 28, rng), offset_ticks=_swing_offset(step, dna)))
+    for step in (2, 6, 10, 14):
+        if step not in rests and rng.random() < dna.ghost_note_bias * dna.syncopation * 0.2:
+            events.append(DrumEvent(bar.index, step, "rim", _vel(base_velocity - 32, rng), offset_ticks=_swing_offset(step, dna)))
     if bar.has_strong_ending and rng.random() < dna.mid_bias:
         events.append(DrumEvent(bar.index, 15, "clap", _vel(base_velocity + 6, rng), offset_ticks=_swing_offset(15, dna)))
     return events
@@ -141,20 +160,23 @@ def _high_events(
             continue
         if rng.random() < dna.high_density:
             velocity = base_velocity - 18 + (9 if step in accents else 0)
-            events.append(DrumEvent(bar.index, step, "closed_hat", _vel(velocity, rng), offset_ticks=_swing_offset(step, dna)))
+            voice = _hat_voice(step, dna, rng)
+            events.append(DrumEvent(bar.index, step, voice, _vel(velocity, rng), offset_ticks=_swing_offset(step, dna)))
 
     for step in accents:
         if step not in rests and rng.random() < dna.mutation * 0.35:
-            events.append(DrumEvent(bar.index, step, "closed_hat", _vel(base_velocity - 8, rng), offset_ticks=_swing_offset(step, dna)))
+            events.append(DrumEvent(bar.index, step, _hat_voice(step, dna, rng), _vel(base_velocity - 8, rng), offset_ticks=_swing_offset(step, dna)))
 
-    if rng.random() < dna.syncopation * 0.35:
+    if rng.random() < dna.syncopation * (0.2 + dna.hat_openness * 0.45):
         events.append(DrumEvent(bar.index, rng.choice([6, 10, 14]), "open_hat", _vel(base_velocity - 6, rng)))
     return events
 
 
 def _fill_events(bar: BarText, dna: DrummerDNA, rng: random.Random, base_velocity: int) -> list[DrumEvent]:
+    if dna.fill_vocabulary == "silence":
+        return []
     start = rng.choice([8, 10, 12])
-    voices = ["snare", "mid_tom", "low_tom"]
+    voices = _fill_voices(dna.fill_vocabulary)
     events: list[DrumEvent] = []
     for step in range(start, STEPS_PER_BAR):
         if rng.random() < 0.35 + dna.fill_aggression * 0.45:
@@ -162,6 +184,111 @@ def _fill_events(bar: BarText, dna: DrummerDNA, rng: random.Random, base_velocit
             velocity = base_velocity + int((step - start) * 1.8)
             events.append(DrumEvent(bar.index, step, voice, _vel(velocity, rng), offset_ticks=_swing_offset(step, dna)))
     return events
+
+
+def _memory_events(
+    bar: BarText,
+    dna: DrummerDNA,
+    rng: random.Random,
+    previous_bar_events: list[DrumEvent],
+) -> list[DrumEvent]:
+    if not previous_bar_events or rng.random() > dna.phrase_memory:
+        return []
+    remembered = []
+    keep_chance = 0.15 + dna.phrase_memory * 0.45
+    for event in previous_bar_events:
+        if dna.groove_anchor == "one_drop" and event.step == 0 and event.voice in {"kick", "snare", "rim", "clap"}:
+            continue
+        if event.voice == "crash" or event.step in {4, 12}:
+            continue
+        if rng.random() < keep_chance and event.voice in {"kick", "closed_hat", "open_hat", "rim"}:
+            velocity = max(1, min(127, int(event.velocity * rng.uniform(0.85, 1.05))))
+            remembered.append(
+                DrumEvent(
+                    bar=bar.index,
+                    step=event.step,
+                    voice=event.voice,
+                    velocity=velocity,
+                    duration_steps=event.duration_steps,
+                    offset_ticks=event.offset_ticks,
+                )
+            )
+    return remembered
+
+
+def _hat_voice(step: int, dna: DrummerDNA, rng: random.Random) -> str:
+    if step in {6, 10, 14} and rng.random() < dna.hat_openness:
+        return "open_hat"
+    if rng.random() < dna.hat_openness * 0.2:
+        return "open_hat"
+    return "closed_hat"
+
+
+def _fill_voices(fill_vocabulary: str) -> list[str]:
+    if fill_vocabulary == "snare_roll":
+        return ["snare", "rim"]
+    if fill_vocabulary == "tom_run":
+        return ["mid_tom", "low_tom", "snare"]
+    if fill_vocabulary == "hat_roll":
+        return ["closed_hat", "open_hat", "snare"]
+    return ["snare", "mid_tom", "low_tom", "closed_hat"]
+
+
+def _anchor_kick_steps(dna: DrummerDNA, rng: random.Random) -> list[tuple[int, int]]:
+    if dna.groove_anchor == "one_drop":
+        return [(8, 10)]
+    if dna.groove_anchor == "four_on_floor":
+        return [(0, 8), (4, 1), (8, 5), (12, 1)]
+    if dna.groove_anchor == "offbeat_push":
+        steps = [(0, 6)]
+        if rng.random() < 0.75:
+            steps.append((6, 0))
+        return steps
+    if dna.groove_anchor == "floating":
+        return [(rng.choice([3, 6, 8, 10]), 4)]
+    return [(0, 12)]
+
+
+def _anchor_mid_steps(dna: DrummerDNA) -> list[tuple[int, int]]:
+    if dna.groove_anchor == "one_drop":
+        return [(8, 12)]
+    if dna.groove_anchor == "floating":
+        return [(4, 6), (12, 5)]
+    if dna.groove_anchor == "offbeat_push":
+        return [(4, 8), (10, 5), (12, 8)]
+    return [(4, 10), (12, 8)]
+
+
+def _apply_dynamic_shape(events: list[DrumEvent], dna: DrummerDNA) -> list[DrumEvent]:
+    shaped = []
+    for event in events:
+        factor = _dynamic_factor(event.step, dna.dynamic_shape)
+        shaped.append(
+            DrumEvent(
+                bar=event.bar,
+                step=event.step,
+                voice=event.voice,
+                velocity=max(1, min(127, int(event.velocity * factor))),
+                duration_steps=event.duration_steps,
+                offset_ticks=event.offset_ticks,
+            )
+        )
+    return shaped
+
+
+def _dynamic_factor(step: int, shape: str) -> float:
+    position = step / max(1, STEPS_PER_BAR - 1)
+    if shape == "front_heavy":
+        return 1.12 - position * 0.18
+    if shape == "back_heavy":
+        return 0.9 + position * 0.22
+    if shape == "crescendo":
+        return 0.82 + position * 0.35
+    if shape == "decrescendo":
+        return 1.15 - position * 0.32
+    if shape == "pocket":
+        return 1.08 if step in {0, 4, 8, 12} else 0.92
+    return 1.0
 
 
 def _dedupe(events: list[DrumEvent]) -> list[DrumEvent]:

@@ -6,6 +6,11 @@ import random
 from .text_parser import TextMap
 
 
+FILL_VOCABULARIES = ("snare_roll", "tom_run", "hat_roll", "silence", "mixed")
+DYNAMIC_SHAPES = ("flat", "front_heavy", "back_heavy", "crescendo", "decrescendo", "pocket")
+GROOVE_ANCHORS = ("strong_one", "one_drop", "four_on_floor", "offbeat_push", "floating")
+
+
 PRESET_BOUNDS = {
     "free": {},
     "boom_bap": {
@@ -13,6 +18,27 @@ PRESET_BOUNDS = {
         "syncopation": (0.25, 0.6),
         "high_density": (0.35, 0.7),
         "mid_bias": (0.6, 0.95),
+        "backbeat_weight": (0.7, 1.0),
+        "ghost_note_bias": (0.25, 0.65),
+        "hat_openness": (0.02, 0.18),
+        "kick_snare_lock": (0.55, 0.9),
+        "phrase_memory": (0.55, 0.9),
+        "fill_vocabulary": ("snare_roll", "mixed"),
+        "dynamic_shape": ("pocket", "front_heavy"),
+        "groove_anchor": ("strong_one", "floating", "offbeat_push"),
+    },
+    "hiphop": {
+        "swing": (0.06, 0.2),
+        "syncopation": (0.25, 0.65),
+        "high_density": (0.25, 0.7),
+        "backbeat_weight": (0.65, 1.0),
+        "ghost_note_bias": (0.25, 0.7),
+        "hat_openness": (0.02, 0.2),
+        "kick_snare_lock": (0.45, 0.85),
+        "phrase_memory": (0.55, 0.9),
+        "fill_vocabulary": ("snare_roll", "mixed", "silence"),
+        "dynamic_shape": ("pocket", "flat", "front_heavy"),
+        "groove_anchor": ("strong_one", "floating", "offbeat_push"),
     },
     "trap": {
         "pulse": (16, 16),
@@ -20,11 +46,27 @@ PRESET_BOUNDS = {
         "syncopation": (0.45, 0.9),
         "high_density": (0.55, 1.0),
         "low_bias": (0.55, 0.95),
+        "backbeat_weight": (0.45, 0.8),
+        "ghost_note_bias": (0.05, 0.35),
+        "hat_openness": (0.05, 0.25),
+        "kick_snare_lock": (0.25, 0.65),
+        "phrase_memory": (0.35, 0.75),
+        "fill_vocabulary": ("hat_roll", "snare_roll", "mixed"),
+        "dynamic_shape": ("flat", "back_heavy", "crescendo"),
+        "groove_anchor": ("floating", "strong_one", "offbeat_push"),
     },
     "minimal": {
         "syncopation": (0.05, 0.35),
         "high_density": (0.1, 0.45),
         "mutation": (0.05, 0.3),
+        "backbeat_weight": (0.25, 0.7),
+        "ghost_note_bias": (0.0, 0.25),
+        "hat_openness": (0.0, 0.12),
+        "kick_snare_lock": (0.25, 0.75),
+        "phrase_memory": (0.7, 1.0),
+        "fill_vocabulary": ("silence", "snare_roll"),
+        "dynamic_shape": ("flat", "decrescendo"),
+        "groove_anchor": ("floating", "strong_one"),
     },
     "rock": {
         "pulse": (8, 16),
@@ -32,22 +74,103 @@ PRESET_BOUNDS = {
         "syncopation": (0.1, 0.35),
         "low_bias": (0.65, 1.0),
         "mid_bias": (0.7, 1.0),
+        "backbeat_weight": (0.8, 1.0),
+        "ghost_note_bias": (0.05, 0.35),
+        "hat_openness": (0.08, 0.35),
+        "kick_snare_lock": (0.7, 1.0),
+        "phrase_memory": (0.45, 0.8),
+        "fill_vocabulary": ("tom_run", "snare_roll", "mixed"),
+        "dynamic_shape": ("front_heavy", "crescendo", "flat"),
+        "groove_anchor": ("strong_one", "four_on_floor"),
+    },
+    "jazz": {
+        "pulse": (8, 16),
+        "swing": (0.12, 0.32),
+        "syncopation": (0.55, 1.0),
+        "low_bias": (0.15, 0.55),
+        "mid_bias": (0.35, 0.75),
+        "high_density": (0.55, 0.95),
+        "backbeat_weight": (0.1, 0.55),
+        "ghost_note_bias": (0.55, 1.0),
+        "hat_openness": (0.18, 0.55),
+        "kick_snare_lock": (0.05, 0.4),
+        "phrase_memory": (0.25, 0.65),
+        "fill_vocabulary": ("snare_roll", "silence", "mixed"),
+        "dynamic_shape": ("pocket", "crescendo", "decrescendo"),
+        "groove_anchor": ("floating", "offbeat_push"),
+    },
+    "country": {
+        "pulse": (8, 16),
+        "swing": (0.03, 0.16),
+        "syncopation": (0.1, 0.4),
+        "low_bias": (0.55, 0.9),
+        "mid_bias": (0.55, 0.9),
+        "high_density": (0.35, 0.75),
+        "backbeat_weight": (0.6, 0.95),
+        "ghost_note_bias": (0.05, 0.35),
+        "hat_openness": (0.03, 0.22),
+        "kick_snare_lock": (0.65, 0.95),
+        "phrase_memory": (0.6, 0.9),
+        "fill_vocabulary": ("snare_roll", "tom_run"),
+        "dynamic_shape": ("flat", "front_heavy"),
+        "groove_anchor": ("strong_one", "four_on_floor"),
+    },
+    "funk": {
+        "pulse": (16, 16),
+        "swing": (0.02, 0.14),
+        "syncopation": (0.55, 0.95),
+        "low_bias": (0.45, 0.85),
+        "mid_bias": (0.55, 0.95),
+        "high_density": (0.55, 0.95),
+        "backbeat_weight": (0.55, 0.9),
+        "ghost_note_bias": (0.55, 1.0),
+        "hat_openness": (0.12, 0.45),
+        "kick_snare_lock": (0.35, 0.75),
+        "phrase_memory": (0.55, 0.9),
+        "fill_vocabulary": ("snare_roll", "hat_roll", "mixed"),
+        "dynamic_shape": ("pocket", "flat"),
+        "groove_anchor": ("offbeat_push", "strong_one", "floating"),
+    },
+    "reggae": {
+        "pulse": (8, 16),
+        "swing": (0.08, 0.22),
+        "syncopation": (0.45, 0.85),
+        "low_bias": (0.3, 0.7),
+        "mid_bias": (0.45, 0.85),
+        "high_density": (0.25, 0.65),
+        "backbeat_weight": (0.2, 0.6),
+        "ghost_note_bias": (0.2, 0.65),
+        "hat_openness": (0.15, 0.55),
+        "kick_snare_lock": (0.1, 0.45),
+        "phrase_memory": (0.55, 0.9),
+        "fill_vocabulary": ("silence", "snare_roll", "mixed"),
+        "dynamic_shape": ("back_heavy", "pocket", "flat"),
+        "groove_anchor": ("one_drop",),
     },
 }
 
 
 @dataclass(frozen=True)
 class DrummerDNA:
+    style: str
     pulse: int
     low_bias: float
     mid_bias: float
     high_density: float
+    backbeat_weight: float
+    ghost_note_bias: float
+    hat_openness: float
+    kick_snare_lock: float
+    phrase_memory: float
     accent_follow: float
     rest_follow: float
     syncopation: float
     repetition: float
     mutation: float
     fill_aggression: float
+    fill_vocabulary: str
+    dynamic_shape: str
+    groove_anchor: str
     swing: float
 
 
@@ -69,16 +192,25 @@ def generate_dna(
 
     pulse = _choose_pulse(rng, density, complexity_value, bounds)
     return DrummerDNA(
+        style=preset,
         pulse=pulse,
         low_bias=_bounded(rng, bounds, "low_bias", 0.35 + intensity_value * 0.45, variation),
         mid_bias=_bounded(rng, bounds, "mid_bias", 0.45 + intensity_value * 0.35, variation),
         high_density=_bounded(rng, bounds, "high_density", 0.2 + complexity_value * 0.65 + density * 0.15, variation),
+        backbeat_weight=_bounded(rng, bounds, "backbeat_weight", 0.45 + intensity_value * 0.4, variation),
+        ghost_note_bias=_bounded(rng, bounds, "ghost_note_bias", 0.1 + complexity_value * 0.45, variation),
+        hat_openness=_bounded(rng, bounds, "hat_openness", 0.05 + complexity_value * 0.25, variation),
+        kick_snare_lock=_bounded(rng, bounds, "kick_snare_lock", 0.35 + intensity_value * 0.35, variation),
+        phrase_memory=_bounded(rng, bounds, "phrase_memory", 0.65 - variation * 0.25, variation),
         accent_follow=_clamp(0.35 + density * 0.35 + variation * 0.25),
         rest_follow=_clamp(0.25 + variation * 0.45),
         syncopation=_bounded(rng, bounds, "syncopation", 0.15 + complexity_value * 0.45, variation),
         repetition=_clamp(0.75 - variation * 0.5 + rng.uniform(-0.1, 0.1)),
         mutation=_bounded(rng, bounds, "mutation", 0.1 + variation * 0.55, variation),
         fill_aggression=_clamp(fill_value * (0.4 + complexity_value * 0.6) + rng.uniform(-0.1, 0.1)),
+        fill_vocabulary=_choice(rng, bounds, "fill_vocabulary", FILL_VOCABULARIES),
+        dynamic_shape=_choice(rng, bounds, "dynamic_shape", DYNAMIC_SHAPES),
+        groove_anchor=_choice(rng, bounds, "groove_anchor", GROOVE_ANCHORS),
         swing=_bounded(rng, bounds, "swing", rng.uniform(0.0, 0.16) * (0.4 + complexity_value), variation),
     )
 
@@ -111,6 +243,18 @@ def _bounded(
         return rng.uniform(low, high)
     spread = 0.15 + variation * 0.35
     return _clamp(rng.uniform(center - spread, center + spread))
+
+
+def _choice(
+    rng: random.Random,
+    bounds: dict[str, tuple[float, float] | tuple[str, ...]],
+    key: str,
+    options: tuple[str, ...],
+) -> str:
+    value = bounds.get(key)
+    if value:
+        return rng.choice(tuple(str(item) for item in value))
+    return rng.choice(options)
 
 
 def _scale(value: int) -> float:

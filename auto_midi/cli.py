@@ -55,12 +55,21 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Preset constraint: {args.preset}")
     print(
         "DrummerDNA: "
+        f"style={dna.style}, "
         f"pulse={dna.pulse}, "
         f"low={dna.low_bias:.2f}, "
         f"mid={dna.mid_bias:.2f}, "
         f"high={dna.high_density:.2f}, "
+        f"backbeat={dna.backbeat_weight:.2f}, "
+        f"ghost={dna.ghost_note_bias:.2f}, "
+        f"hat_open={dna.hat_openness:.2f}, "
+        f"lock={dna.kick_snare_lock:.2f}, "
+        f"memory={dna.phrase_memory:.2f}, "
         f"sync={dna.syncopation:.2f}, "
         f"mutation={dna.mutation:.2f}, "
+        f"fill_vocab={dna.fill_vocabulary}, "
+        f"dynamic={dna.dynamic_shape}, "
+        f"anchor={dna.groove_anchor}, "
         f"swing={dna.swing:.2f}"
     )
     return 0

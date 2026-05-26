@@ -83,8 +83,27 @@ python3 -m auto_midi examples/poem.txt \
   --fill 45 \
   --randomness 35 \
   --seed 7 \
+  --preset reggae \
   --output outputs/take_7.mid
 ```
+
+Available style constraints:
+
+```text
+free
+boom_bap
+hiphop
+trap
+minimal
+rock
+jazz
+country
+funk
+reggae
+```
+
+Presets are style boundaries for generating a new drummer DNA. They are not
+fixed drum patterns.
 
 ## Concept
 
@@ -96,3 +115,25 @@ text sections -> TextMap -> generated DrummerDNA -> drum events -> MIDI
 
 Presets are intentionally light. They act as loose constraints for generating a
 new drummer, not as fixed drum patterns.
+
+## DrummerDNA v2
+
+Each run generates a temporary drummer profile:
+
+```text
+pulse              main grid feel: 4 / 8 / 16
+low_bias           kick activity
+mid_bias           snare/rim/clap activity
+high_density       hat/cymbal density
+backbeat_weight    2 and 4 snare stability
+ghost_note_bias    quiet snare/rim detail
+hat_openness       closed hat vs open hat tendency
+kick_snare_lock    traditional kick/snare groove skeleton
+phrase_memory      reuse of previous-bar material
+syncopation        off-beat and weak-step tendency
+mutation           bar-to-bar variation
+fill_vocabulary    snare_roll / tom_run / hat_roll / silence / mixed
+dynamic_shape      flat / front_heavy / back_heavy / crescendo / decrescendo / pocket
+groove_anchor      strong_one / one_drop / four_on_floor / offbeat_push / floating
+swing              delayed off-step feel
+```
