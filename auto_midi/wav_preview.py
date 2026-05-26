@@ -65,18 +65,52 @@ def render_preview_wav(
 
 
 def _load_sample(path: Path) -> AudioSample:
-    with wave.open(str(path), "rb") as wav_file:
-        channels = wav_file.getnchannels()
-        width = wav_file.getsampwidth()
-        sample_rate = wav_file.getframerate()
-        raw = wav_file.readframes(wav_file.getnframes())
-    values = _decode_pcm(raw, width)
+    try:
+        with wave.open(str(path), "rb") as wav_file:
+            channels = wav_file.getnchannels()
+            width = wav_file.getsampwidth()
+            sample_rate = wav_file.getframerate()
+            raw = wav_file.readframes(wav_file.getnframes())
+        values = _decode_pcm(raw, width)
+    except wave.Error:
+        channels, sample_rate, values = _load_riff_wave(path)
     if channels > 1:
         mono = []
         for index in range(0, len(values), channels):
             mono.append(sum(values[index : index + channels]) / channels)
         values = mono
     return AudioSample(frames=tuple(values), sample_rate=sample_rate)
+
+
+def _load_riff_wave(path: Path) -> tuple[int, int, list[float]]:
+    data = path.read_bytes()
+    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+        raise ValueError(f"not a RIFF/WAVE file: {path}")
+
+    fmt: bytes | None = None
+    audio: bytes | None = None
+    cursor = 12
+    while cursor + 8 <= len(data):
+        chunk_id = data[cursor : cursor + 4]
+        chunk_size = int.from_bytes(data[cursor + 4 : cursor + 8], "little")
+        chunk_start = cursor + 8
+        chunk_end = chunk_start + chunk_size
+        if chunk_id == b"fmt ":
+            fmt = data[chunk_start:chunk_end]
+        elif chunk_id == b"data":
+            audio = data[chunk_start:chunk_end]
+        cursor = chunk_end + (chunk_size % 2)
+
+    if fmt is None or audio is None:
+        raise ValueError(f"missing fmt or data chunk: {path}")
+
+    audio_format, channels, sample_rate, _, _, bits = struct.unpack("<HHIIHH", fmt[:16])
+    if audio_format == 1:
+        return channels, sample_rate, _decode_pcm(audio, bits // 8)
+    if audio_format == 3 and bits == 32:
+        count = len(audio) // 4
+        return channels, sample_rate, list(struct.unpack(f"<{count}f", audio))
+    raise ValueError(f"unsupported WAV format {audio_format} / {bits}-bit: {path}")
 
 
 def _decode_pcm(raw: bytes, width: int) -> list[float]:
