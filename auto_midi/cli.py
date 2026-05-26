@@ -7,7 +7,9 @@ import random
 from .drummer_dna import PRESET_BOUNDS, generate_dna
 from .midi_exporter import write_midi
 from .pattern_generator import generate_events
+from .sample_kit import inspect_kit
 from .text_parser import parse_text
+from .wav_preview import render_preview_wav
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -37,6 +39,17 @@ def main(argv: list[str] | None = None) -> int:
     write_midi(events, output_path, bpm=args.bpm)
 
     print(f"Wrote {output_path}")
+    if args.preview_wav is not None:
+        preview_path = Path(args.preview_wav) if args.preview_wav else output_path.with_suffix(".wav")
+        kit_status = inspect_kit(Path(args.sample_kit))
+        render_preview_wav(
+            events=events,
+            kit_status=kit_status,
+            output_path=preview_path,
+            bpm=args.bpm,
+            bar_count=len(text_map.bars),
+        )
+        print(f"Wrote {preview_path}")
     print(f"Seed: {seed}")
     print(f"Bars: {len(text_map.bars)}")
     print(f"Preset constraint: {args.preset}")
@@ -67,6 +80,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--randomness", type=_bounded_int(0, 100), default=45)
     parser.add_argument("--seed", type=int, help="Set for repeatable generation.")
     parser.add_argument("--preset", choices=sorted(PRESET_BOUNDS), default="free")
+    parser.add_argument(
+        "--preview-wav",
+        nargs="?",
+        const="",
+        help="Render a WAV preview. Optionally pass the output .wav path.",
+    )
+    parser.add_argument("--sample-kit", default="samples/classic_kit", help="Folder containing canonical drum sample WAVs.")
     return parser
 
 

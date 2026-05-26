@@ -18,6 +18,47 @@ The MIDI file will be written to:
 outputs/poem_drums.mid
 ```
 
+## WAV Preview With A Classic Kit
+
+This repo can render a quick WAV preview from local drum samples. The sample
+files are intentionally ignored by git.
+
+Download the Judd Madden drum sample pack from:
+
+```text
+https://juddmadden.com/drum-samples.html
+```
+
+Then prepare the canonical kit folder:
+
+```bash
+python3 scripts/prepare_judd_kit.py /path/to/judd-madden-drums.zip
+```
+
+Or, if you already extracted it:
+
+```bash
+python3 scripts/prepare_judd_kit.py /path/to/extracted/drum-samples
+```
+
+Render MIDI and WAV together:
+
+```bash
+python3 -m auto_midi examples/poem.txt --bpm 92 --seed 42 --preview-wav
+```
+
+Expected local files:
+
+```text
+samples/classic_kit/kick.wav
+samples/classic_kit/snare.wav
+samples/classic_kit/closed_hat.wav
+samples/classic_kit/open_hat.wav
+samples/classic_kit/low_tom.wav
+samples/classic_kit/mid_tom.wav
+samples/classic_kit/crash.wav
+```
+
 ## Text Format
 
 - One non-empty line = one bar.
