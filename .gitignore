@@ -10,6 +10,7 @@ htmlcov/
 venv/
 outputs/
 samples/
+judd-madden-drum-samples/
 drumkit/
 .idea/
 .vscode/

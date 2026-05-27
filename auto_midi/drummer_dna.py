@@ -152,26 +152,26 @@ PRESET_BOUNDS = {
 
 @dataclass(frozen=True)
 class DrummerDNA:
-    style: str  # Style boundary used to generate this individual drummer, e.g. reggae, hiphop, jazz.
-    pulse: int  # Main subdivision feel: 4, 8, or 16 steps per bar emphasis.
-    low_bias: float  # Kick/low-slot activity tendency.
-    mid_bias: float  # Snare, rim, and clap activity tendency.
-    high_density: float  # Hat/cymbal density tendency.
-    backbeat_weight: float  # Stability and strength of snare-like backbeat hits.
-    ghost_note_bias: float  # Tendency to add quiet rim/snare ghost notes.
-    hat_openness: float  # Probability bias toward open hats instead of closed hats.
-    kick_snare_lock: float  # How strongly kick/snare preserve a traditional groove skeleton.
-    phrase_memory: float  # Chance to reuse material from the previous bar.
-    accent_follow: float  # How strongly text token starts become drum accents.
-    rest_follow: float  # How strongly punctuation and phrase breaks create rests.
-    syncopation: float  # Off-beat and weak-step activity tendency.
-    repetition: float  # Higher values keep bars more repetitive and loop-like.
-    mutation: float  # Bar-to-bar variation and text-driven extra event tendency.
-    fill_aggression: float  # Fill probability and density multiplier.
-    fill_vocabulary: str  # Fill language: snare_roll, tom_run, hat_roll, silence, or mixed.
-    dynamic_shape: str  # Per-bar velocity curve: flat, front_heavy, back_heavy, crescendo, decrescendo, or pocket.
-    groove_anchor: str  # Core groove gravity: strong_one, one_drop, four_on_floor, offbeat_push, or floating.
-    swing: float  # Timing delay applied to off-steps for swing/shuffle feel.
+    style: str  # Style boundary used to generate this individual drummer, e.g. reggae, hiphop, jazz. 风格边界，用于生成该鼓手个体（如 reggae、hiphop、jazz）。
+    pulse: int  # Main subdivision feel: 4, 8, or 16 steps per bar emphasis. 主要细分律动：每小节以 4/8/16 步为重心。
+    low_bias: float  # Kick/low-slot activity tendency. 底鼓/低频声部活跃倾向。
+    mid_bias: float  # Snare, rim, and clap activity tendency. 军鼓、rim、clap 等中频声部活跃倾向。
+    high_density: float  # Hat/cymbal density tendency. 镲片（hat/cymbal）密度倾向。
+    backbeat_weight: float  # Stability and strength of snare-like backbeat hits. 反拍（类似军鼓落点）的稳定性与力度权重。
+    ghost_note_bias: float  # Tendency to add quiet rim/snare ghost notes. 添加轻弱 ghost note（rim/snare）的倾向。
+    hat_openness: float  # Probability bias toward open hats instead of closed hats. 开镲相对闭镲的概率偏向。
+    kick_snare_lock: float  # How strongly kick/snare preserve a traditional groove skeleton. 底鼓/军鼓保持传统 groove 骨架的强度。
+    phrase_memory: float  # Chance to reuse material from the previous bar. 复用上一小节素材的概率。
+    accent_follow: float  # How strongly text token starts become drum accents. 文本 token 起始位置转为重音的跟随强度。
+    rest_follow: float  # How strongly punctuation and phrase breaks create rests. 标点与语句停顿转为休止的跟随强度。
+    syncopation: float  # Off-beat and weak-step activity tendency. 切分与弱拍位置的活跃倾向。
+    repetition: float  # Higher values keep bars more repetitive and loop-like. 数值越高，小节越重复、越循环化。
+    mutation: float  # Bar-to-bar variation and text-driven extra event tendency. 小节间变化与文本驱动附加事件的倾向。
+    fill_aggression: float  # Fill probability and density multiplier. Fill（加花）出现概率与密度的倍率。
+    fill_vocabulary: str  # Fill language: snare_roll, tom_run, hat_roll, silence, or mixed. Fill 语言集合：snare_roll、tom_run、hat_roll、silence 或 mixed。
+    dynamic_shape: str  # Per-bar velocity curve: flat, front_heavy, back_heavy, crescendo, decrescendo, or pocket. 每小节力度曲线：flat、front_heavy、back_heavy、crescendo、decrescendo 或 pocket。
+    groove_anchor: str  # Core groove gravity: strong_one, one_drop, four_on_floor, offbeat_push, or floating. 核心 groove 重心：strong_one、one_drop、four_on_floor、offbeat_push 或 floating。
+    swing: float  # Timing delay applied to off-steps for swing/shuffle feel. 对非强拍步长施加时值延后，以形成 swing/shuffle 感。
 
 
 def generate_dna(

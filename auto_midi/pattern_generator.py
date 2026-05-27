@@ -14,12 +14,12 @@ TICKS_PER_STEP = TICKS_PER_BEAT // 4
 
 @dataclass(frozen=True)
 class DrumEvent:
-    bar: int  # Zero-based bar index.
-    step: int  # Sixteenth-note grid step inside the bar, 0-15.
-    voice: str  # Drum voice name, e.g. kick, snare, closed_hat.
-    velocity: int  # MIDI velocity, 1-127.
-    duration_steps: int = 1  # Event duration in sixteenth-note steps.
-    offset_ticks: int = 0  # Timing offset in MIDI ticks for swing/human feel.
+    bar: int  # Zero-based bar index. 从 0 开始的小节索引。
+    step: int  # Sixteenth-note grid step inside the bar, 0-15. 小节内 16 分音符网格步位，范围 0-15。
+    voice: str  # Drum voice name, e.g. kick, snare, closed_hat. 鼓组声部名称，如 kick、snare、closed_hat。
+    velocity: int  # MIDI velocity, 1-127. MIDI 力度值，范围 1-127。
+    duration_steps: int = 1  # Event duration in sixteenth-note steps. 事件时长，单位为 16 分音符步数。
+    offset_ticks: int = 0  # Timing offset in MIDI ticks for swing/human feel. 时值偏移量（MIDI tick），用于 swing/人性化。
 
     @property
     def absolute_tick(self) -> int:

@@ -1,3 +1,23 @@
+"""
+Input Text Format / 输入文本格式说明
+
+1) One non-empty line = one bar.
+    每一行非空文本 = 1 个小节。
+
+2) Empty lines = section breaks.
+    空行用于分段（section）。
+
+3) Punctuation affects pause, accent, and rhythm mapping.
+    标点会影响停顿、重音和节奏映射。
+
+Example / 示例:
+我在城市边缘听见雨声
+夜色落下来像旧的回声
+
+风穿过霓虹和破碎玻璃
+我把名字藏进下一次呼吸
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,34 +43,34 @@ SENTENCE_ENDINGS = set("。！？.!?")
 
 @dataclass(frozen=True)
 class TextToken:
-    text: str  # NLP token text, usually a Chinese word or an ASCII word.
-    syllables: int  # Estimated syllable count; Chinese uses one syllable per character.
-    start_syllable: int  # Inclusive syllable offset inside the bar.
-    end_syllable: int  # Exclusive syllable offset inside the bar.
-    weight: float  # Accent weight derived from token length.
+    text: str  # NLP token text, usually a Chinese word or an ASCII word. NLP 分词文本，通常是中文词或 ASCII 单词。
+    syllables: int  # Estimated syllable count; Chinese uses one syllable per character. 估算音节数；中文按每字一个音节处理。
+    start_syllable: int  # Inclusive syllable offset inside the bar. 小节内起始音节偏移（包含起点）。
+    end_syllable: int  # Exclusive syllable offset inside the bar. 小节内结束音节偏移（不包含终点）。
+    weight: float  # Accent weight derived from token length. 由 token 长度推导的重音权重。
 
 
 @dataclass(frozen=True)
 class Phrase:
-    text: str  # Phrase text split by punctuation or line boundaries.
-    tokens: tuple[TextToken, ...]  # Tokens inside this phrase.
-    start_syllable: int  # Inclusive phrase syllable offset inside the bar.
-    end_syllable: int  # Exclusive phrase syllable offset inside the bar.
-    pause_strength: float  # 0-1 pause implied after this phrase.
-    rhyme_key: str | None  # Rhyme final for the phrase ending, when available.
+    text: str  # Phrase text split by punctuation or line boundaries. 由标点或行边界切分得到的短语文本。
+    tokens: tuple[TextToken, ...]  # Tokens inside this phrase. 当前短语中的 token 列表。
+    start_syllable: int  # Inclusive phrase syllable offset inside the bar. 短语在小节内的起始音节偏移（包含起点）。
+    end_syllable: int  # Exclusive phrase syllable offset inside the bar. 短语在小节内的结束音节偏移（不包含终点）。
+    pause_strength: float  # 0-1 pause implied after this phrase. 该短语后停顿强度（0-1）。
+    rhyme_key: str | None  # Rhyme final for the phrase ending, when available. 短语末尾韵脚键（可用时提供）。
 
 
 @dataclass(frozen=True)
 class BarText:
-    index: int  # Zero-based bar index.
-    section: int  # Section index split by blank lines.
-    text: str  # Original line text for this bar.
-    tokens: tuple[str, ...]  # Token text strings for quick display and summaries.
-    token_units: tuple[TextToken, ...]  # Rich NLP token units used for rhythm mapping.
-    phrases: tuple[Phrase, ...]  # Phrase-level cuts, pauses, and rhyme keys.
-    punctuation_positions: tuple[int, ...]  # Punctuation offsets in syllable space.
-    rhyme_key: str | None = None  # Rhyme final for the full bar ending, when available.
-    ends_section: bool = False  # True when this bar ends a blank-line section.
+    index: int  # Zero-based bar index. 从 0 开始的小节索引。
+    section: int  # Section index split by blank lines. 按空行切分后的段落索引。
+    text: str  # Original line text for this bar. 当前小节对应的原始文本行。
+    tokens: tuple[str, ...]  # Token text strings for quick display and summaries. 仅文本形式的 token 序列，便于展示和摘要。
+    token_units: tuple[TextToken, ...]  # Rich NLP token units used for rhythm mapping. 用于节奏映射的结构化 NLP token 单元。
+    phrases: tuple[Phrase, ...]  # Phrase-level cuts, pauses, and rhyme keys. 短语级切分结果，包含停顿和韵脚信息。
+    punctuation_positions: tuple[int, ...]  # Punctuation offsets in syllable space. 标点在音节坐标系中的偏移位置。
+    rhyme_key: str | None = None  # Rhyme final for the full bar ending, when available. 整个小节末尾韵脚键（可用时提供）。
+    ends_section: bool = False  # True when this bar ends a blank-line section. 若该小节是一个空行分段的结尾则为 True。
 
     @property
     def char_count(self) -> int:
@@ -67,8 +87,8 @@ class BarText:
 
 @dataclass(frozen=True)
 class TextMap:
-    bars: tuple[BarText, ...]  # Parsed bars from the source text.
-    section_count: int  # Number of blank-line sections in the source text.
+    bars: tuple[BarText, ...]  # Parsed bars from the source text. 从源文本解析得到的小节集合。
+    section_count: int  # Number of blank-line sections in the source text. 源文本中由空行划分的段落数量。
 
     @property
     def average_chars(self) -> float:
