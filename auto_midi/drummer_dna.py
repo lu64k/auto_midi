@@ -152,26 +152,26 @@ PRESET_BOUNDS = {
 
 @dataclass(frozen=True)
 class DrummerDNA:
-    style: str
-    pulse: int
-    low_bias: float
-    mid_bias: float
-    high_density: float
-    backbeat_weight: float
-    ghost_note_bias: float
-    hat_openness: float
-    kick_snare_lock: float
-    phrase_memory: float
-    accent_follow: float
-    rest_follow: float
-    syncopation: float
-    repetition: float
-    mutation: float
-    fill_aggression: float
-    fill_vocabulary: str
-    dynamic_shape: str
-    groove_anchor: str
-    swing: float
+    style: str  # Style boundary used to generate this individual drummer, e.g. reggae, hiphop, jazz.
+    pulse: int  # Main subdivision feel: 4, 8, or 16 steps per bar emphasis.
+    low_bias: float  # Kick/low-slot activity tendency.
+    mid_bias: float  # Snare, rim, and clap activity tendency.
+    high_density: float  # Hat/cymbal density tendency.
+    backbeat_weight: float  # Stability and strength of snare-like backbeat hits.
+    ghost_note_bias: float  # Tendency to add quiet rim/snare ghost notes.
+    hat_openness: float  # Probability bias toward open hats instead of closed hats.
+    kick_snare_lock: float  # How strongly kick/snare preserve a traditional groove skeleton.
+    phrase_memory: float  # Chance to reuse material from the previous bar.
+    accent_follow: float  # How strongly text token starts become drum accents.
+    rest_follow: float  # How strongly punctuation and phrase breaks create rests.
+    syncopation: float  # Off-beat and weak-step activity tendency.
+    repetition: float  # Higher values keep bars more repetitive and loop-like.
+    mutation: float  # Bar-to-bar variation and text-driven extra event tendency.
+    fill_aggression: float  # Fill probability and density multiplier.
+    fill_vocabulary: str  # Fill language: snare_roll, tom_run, hat_roll, silence, or mixed.
+    dynamic_shape: str  # Per-bar velocity curve: flat, front_heavy, back_heavy, crescendo, decrescendo, or pocket.
+    groove_anchor: str  # Core groove gravity: strong_one, one_drop, four_on_floor, offbeat_push, or floating.
+    swing: float  # Timing delay applied to off-steps for swing/shuffle feel.
 
 
 def generate_dna(

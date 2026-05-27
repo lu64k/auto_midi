@@ -9,7 +9,9 @@ General MIDI drum track.
 ## Quick Start
 
 ```bash
-python3 -m auto_midi examples/poem.txt --bpm 92 --seed 42
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m auto_midi examples/poem.txt --bpm 92 --seed 42
 ```
 
 The MIDI file will be written to:
@@ -44,7 +46,7 @@ python3 scripts/prepare_judd_kit.py /path/to/extracted/drum-samples
 Render MIDI and WAV together:
 
 ```bash
-python3 -m auto_midi examples/poem.txt --bpm 92 --seed 42 --preview-wav
+.venv/bin/python -m auto_midi examples/poem.txt --bpm 92 --seed 42 --preview-wav
 ```
 
 Expected local files:
@@ -87,6 +89,12 @@ python3 -m auto_midi examples/poem.txt \
   --output outputs/take_7.mid
 ```
 
+Inspect the NLP rhythm map:
+
+```bash
+.venv/bin/python -m auto_midi examples/poem.txt --print-text-map --seed 42
+```
+
 Available style constraints:
 
 ```text
@@ -110,7 +118,7 @@ fixed drum patterns.
 The core loop is:
 
 ```text
-text sections -> TextMap -> generated DrummerDNA -> drum events -> MIDI
+text sections -> NLP TextMap -> generated DrummerDNA -> drum events -> MIDI
 ```
 
 Presets are intentionally light. They act as loose constraints for generating a

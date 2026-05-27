@@ -14,12 +14,12 @@ TICKS_PER_STEP = TICKS_PER_BEAT // 4
 
 @dataclass(frozen=True)
 class DrumEvent:
-    bar: int
-    step: int
-    voice: str
-    velocity: int
-    duration_steps: int = 1
-    offset_ticks: int = 0
+    bar: int  # Zero-based bar index.
+    step: int  # Sixteenth-note grid step inside the bar, 0-15.
+    voice: str  # Drum voice name, e.g. kick, snare, closed_hat.
+    velocity: int  # MIDI velocity, 1-127.
+    duration_steps: int = 1  # Event duration in sixteenth-note steps.
+    offset_ticks: int = 0  # Timing offset in MIDI ticks for swing/human feel.
 
     @property
     def absolute_tick(self) -> int:
@@ -64,18 +64,36 @@ def generate_events(
 
 
 def token_steps(bar: BarText) -> set[int]:
-    count = max(1, bar.token_count)
-    steps = set()
-    for index in range(count):
-        steps.add(min(STEPS_PER_BAR - 1, round(index * STEPS_PER_BAR / count)))
+    if not bar.token_units:
+        return set()
+    total = max(1, bar.char_count)
+    steps = {
+        min(STEPS_PER_BAR - 1, round(token.start_syllable * STEPS_PER_BAR / total))
+        for token in bar.token_units
+    }
+    for phrase in bar.phrases:
+        steps.add(min(STEPS_PER_BAR - 1, round(phrase.start_syllable * STEPS_PER_BAR / total)))
     return steps
 
 
 def punctuation_steps(bar: BarText) -> set[int]:
     count = max(1, bar.char_count)
-    return {
+    steps = {
         min(STEPS_PER_BAR - 1, round(position * STEPS_PER_BAR / count))
         for position in bar.punctuation_positions
+    }
+    for phrase in bar.phrases:
+        if phrase.pause_strength >= 0.5:
+            steps.add(min(STEPS_PER_BAR - 1, round(phrase.end_syllable * STEPS_PER_BAR / count)))
+    return steps
+
+
+def phrase_end_steps(bar: BarText) -> set[int]:
+    count = max(1, bar.char_count)
+    return {
+        min(STEPS_PER_BAR - 1, round(phrase.end_syllable * STEPS_PER_BAR / count))
+        for phrase in bar.phrases
+        if phrase.pause_strength >= 0.5 or phrase.rhyme_key
     }
 
 
@@ -140,6 +158,9 @@ def _mid_events(
     for step in (2, 6, 10, 14):
         if step not in rests and rng.random() < dna.ghost_note_bias * dna.syncopation * 0.2:
             events.append(DrumEvent(bar.index, step, "rim", _vel(base_velocity - 32, rng), offset_ticks=_swing_offset(step, dna)))
+    for step in phrase_end_steps(bar):
+        if step not in rests and step not in {4, 12} and rng.random() < dna.mid_bias * 0.22:
+            events.append(DrumEvent(bar.index, step, "rim", _vel(base_velocity - 12, rng), offset_ticks=_swing_offset(step, dna)))
     if bar.has_strong_ending and rng.random() < dna.mid_bias:
         events.append(DrumEvent(bar.index, 15, "clap", _vel(base_velocity + 6, rng), offset_ticks=_swing_offset(15, dna)))
     return events
