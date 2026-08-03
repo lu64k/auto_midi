@@ -18,6 +18,7 @@ REQUIRED_VOICES = (
 OPTIONAL_FALLBACKS = {
     "rim": "snare",
     "clap": "snare",
+    "ride": "crash",
 }
 
 VOICE_HINTS = {

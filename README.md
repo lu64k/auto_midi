@@ -120,6 +120,8 @@ trap
 minimal
 rock
 jazz
+blues
+rnb
 country
 funk
 reggae
@@ -127,7 +129,22 @@ reggae
 
 The generator supports `3/4`, `4/4`, and `6/8`. Groove templates are kept
 inside the selected style: Rock defaults to `classic_rock`, with optional
-`driving_rock` and `half_time_rock`; Reggae defaults to `one_drop`.
+`driving_rock`, `half_time_rock`, and `sparse_rock`; Reggae defaults to
+`one_drop`. Groove templates keep a style-specific skeleton while randomness
+controls bounded variations and ornament density.
+
+Sections can restrict which drum voices are allowed. Omit `allowed` or use an
+empty list to allow all voices:
+
+```json
+{
+  "name": "intro",
+  "bars": 8,
+  "allowed": ["crash"],
+  "fill": 0,
+  "fill_mode": "none"
+}
+```
 
 Presets are style boundaries for generating a new drummer DNA. They are not
 fixed drum patterns.

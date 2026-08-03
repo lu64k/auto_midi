@@ -78,6 +78,7 @@ def generate_events(
         if bar.index == 0 or bar.section != text_map.bars[bar.index - 1].section:
             bar_events.append(DrumEvent(bar.index, 0, "crash", _vel(base_velocity + 18, rng)))
 
+        bar_events = _filter_allowed_voices(bar_events, section)
         bar_events = _apply_dynamic_shape(bar_events, bar_dna)
         events.extend(bar_events)
         previous_bar_events = bar_events
@@ -194,6 +195,13 @@ def _apply_section_dna(
     return replace(dna, **values)
 
 
+def _filter_allowed_voices(events: list[DrumEvent], section: SectionConfig | None) -> list[DrumEvent]:
+    if section is None or not section.allowed_voices:
+        return events
+    allowed = set(section.allowed_voices)
+    return [event for event in events if event.voice in allowed]
+
+
 def _interpolate(start: float, end: float, position: float) -> float:
     return start + (end - start) * max(0.0, min(1.0, position))
 
@@ -209,16 +217,16 @@ def _low_events(
     events = []
     for step, boost in _anchor_kick_steps(dna, rng):
         events.append(DrumEvent(bar.index, step, "kick", _vel(base_velocity + boost, rng)))
-    if dna.kick_snare_lock > 0.55 and rng.random() < dna.kick_snare_lock * 0.5:
+    if dna.kick_snare_lock > 0.55 and rng.random() < dna.kick_snare_lock * 0.5 * dna.ornament_amount:
         events.append(DrumEvent(bar.index, rng.choice([8, 10]), "kick", _vel(base_velocity + 2, rng)))
     candidates = [step for step in accents if step not in rests and step % 4 != 0]
     for step in candidates:
         chance = dna.low_bias * dna.accent_follow * (1.2 - dna.kick_snare_lock * 0.45)
         if step in {3, 6, 10, 14}:
             chance += dna.syncopation * 0.25
-        if rng.random() < chance * 0.55:
+        if rng.random() < chance * 0.55 * dna.ornament_amount:
             events.append(DrumEvent(bar.index, step, "kick", _vel(base_velocity + 4, rng), offset_ticks=_swing_offset(step, dna)))
-    if rng.random() > dna.repetition:
+    if rng.random() > dna.repetition and rng.random() < dna.ornament_amount:
         step = rng.choice([7, 11, 15])
         events.append(DrumEvent(bar.index, step, "kick", _vel(base_velocity - 4, rng), offset_ticks=_swing_offset(step, dna)))
     return events
@@ -234,26 +242,30 @@ def _mid_events(
 ) -> list[DrumEvent]:
     events = []
     for step, boost in _anchor_mid_steps(dna):
-        if rng.random() < 0.2 + dna.backbeat_weight * 0.8:
+        anchor_chance = max(
+            0.75,
+            0.98 - dna.backbeat_variation * 0.10 - (1.0 - dna.skeleton_strength) * 0.06,
+        )
+        if rng.random() < anchor_chance:
             events.append(DrumEvent(bar.index, step, "snare", _vel(base_velocity + boost + int(dna.backbeat_weight * 8), rng)))
     for step in accents:
         if dna.groove_anchor == "one_drop" and step == 0:
             continue
         if step in rests or step in _backbeat_steps():
             continue
-        if rng.random() < dna.mid_bias * dna.accent_follow * 0.28:
+        if rng.random() < dna.mid_bias * dna.accent_follow * 0.28 * dna.ornament_amount:
             voice = "clap" if rng.random() < 0.35 else "rim"
             events.append(DrumEvent(bar.index, step, voice, _vel(base_velocity - 10, rng), offset_ticks=_swing_offset(step, dna)))
-        elif rng.random() < dna.ghost_note_bias * 0.22:
+        elif rng.random() < dna.ghost_note_bias * 0.22 * dna.ornament_amount:
             voice = "rim" if rng.random() < 0.65 else "snare"
             events.append(DrumEvent(bar.index, step, voice, _vel(base_velocity - 28, rng), offset_ticks=_swing_offset(step, dna)))
     for step in _eighth_steps(1, 3, 5, 7):
-        if step not in rests and rng.random() < dna.ghost_note_bias * dna.syncopation * 0.2:
+        if step not in rests and rng.random() < dna.ghost_note_bias * dna.syncopation * 0.2 * dna.ornament_amount:
             events.append(DrumEvent(bar.index, step, "rim", _vel(base_velocity - 32, rng), offset_ticks=_swing_offset(step, dna)))
     for step in phrase_end_steps(bar):
-        if step not in rests and step not in _backbeat_steps() and rng.random() < dna.mid_bias * 0.22:
+        if step not in rests and step not in _backbeat_steps() and rng.random() < dna.mid_bias * 0.22 * dna.ornament_amount:
             events.append(DrumEvent(bar.index, step, "rim", _vel(base_velocity - 12, rng), offset_ticks=_swing_offset(step, dna)))
-    if bar.has_strong_ending and rng.random() < dna.mid_bias:
+    if bar.has_strong_ending and rng.random() < dna.mid_bias * dna.ornament_amount:
         events.append(DrumEvent(bar.index, 15, "clap", _vel(base_velocity + 6, rng), offset_ticks=_swing_offset(15, dna)))
     return events
 
@@ -271,16 +283,17 @@ def _high_events(
     for step in range(0, STEPS_PER_BAR, interval):
         if step in rests and rng.random() < dna.rest_follow:
             continue
-        if rng.random() < dna.high_density:
+        hat_chance = max(dna.high_density, 0.25 + dna.skeleton_strength * 0.65)
+        if rng.random() < hat_chance:
             velocity = base_velocity - 18 + (9 if step in accents else 0)
             voice = _hat_voice(step, dna, rng)
             events.append(DrumEvent(bar.index, step, voice, _vel(velocity, rng), offset_ticks=_swing_offset(step, dna)))
 
     for step in accents:
-        if step not in rests and rng.random() < dna.mutation * 0.35:
+        if step not in rests and rng.random() < dna.mutation * 0.35 * dna.ornament_amount:
             events.append(DrumEvent(bar.index, step, _hat_voice(step, dna, rng), _vel(base_velocity - 8, rng), offset_ticks=_swing_offset(step, dna)))
 
-    if rng.random() < dna.syncopation * (0.2 + dna.hat_openness * 0.45):
+    if rng.random() < dna.syncopation * (0.2 + dna.hat_openness * 0.45) * dna.ornament_amount:
         events.append(DrumEvent(bar.index, rng.choice(_eighth_steps(3, 5, 7)), "open_hat", _vel(base_velocity - 6, rng)))
     return events
 
@@ -433,6 +446,8 @@ def _vel(value: int, rng: random.Random) -> int:
 
 
 def _swing_offset(step: int, dna: DrummerDNA) -> int:
+    if dna.style in {"blues", "jazz"} and step % 4 == 2:
+        return int(TICKS_PER_STEP * dna.swing)
     if step % 2 == 1:
         return int(TICKS_PER_STEP * dna.swing)
     return 0

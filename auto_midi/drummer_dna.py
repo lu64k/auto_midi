@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import random
 
 from .text_parser import TextMap
-from .groove import GROOVE_ANCHORS as GROOVE_TEMPLATE_ANCHORS, GROOVE_PULSES, default_groove
+from .groove import GROOVE_ANCHORS as GROOVE_TEMPLATE_ANCHORS, GROOVE_PULSES, GROOVE_PROFILES, default_groove
 
 
 FILL_VOCABULARIES = ("snare_roll", "tom_run", "hat_roll", "silence", "mixed")
@@ -100,6 +100,38 @@ PRESET_BOUNDS = {
         "dynamic_shape": ("pocket", "crescendo", "decrescendo"),
         "groove_anchor": ("floating", "offbeat_push"),
     },
+    "blues": {
+        "pulse": (8, 8),
+        "swing": (0.18, 0.35),
+        "syncopation": (0.15, 0.45),
+        "low_bias": (0.45, 0.85),
+        "mid_bias": (0.55, 0.9),
+        "high_density": (0.35, 0.75),
+        "backbeat_weight": (0.65, 0.95),
+        "ghost_note_bias": (0.1, 0.4),
+        "hat_openness": (0.05, 0.25),
+        "kick_snare_lock": (0.55, 0.9),
+        "phrase_memory": (0.55, 0.9),
+        "fill_vocabulary": ("snare_roll", "tom_run", "mixed"),
+        "dynamic_shape": ("pocket", "front_heavy", "flat"),
+        "groove_anchor": ("strong_one",),
+    },
+    "rnb": {
+        "pulse": (16, 16),
+        "swing": (0.02, 0.14),
+        "syncopation": (0.5, 0.95),
+        "low_bias": (0.35, 0.8),
+        "mid_bias": (0.55, 0.95),
+        "high_density": (0.45, 0.9),
+        "backbeat_weight": (0.55, 0.9),
+        "ghost_note_bias": (0.4, 0.9),
+        "hat_openness": (0.05, 0.3),
+        "kick_snare_lock": (0.25, 0.7),
+        "phrase_memory": (0.45, 0.8),
+        "fill_vocabulary": ("snare_roll", "hat_roll", "mixed"),
+        "dynamic_shape": ("pocket", "flat", "back_heavy"),
+        "groove_anchor": ("offbeat_push", "floating"),
+    },
     "country": {
         "pulse": (8, 16),
         "swing": (0.03, 0.16),
@@ -175,6 +207,9 @@ class DrummerDNA:
     swing: float  # Timing delay applied to off-steps for swing/shuffle feel. 对非强拍步长施加时值延后，以形成 swing/shuffle 感。
 
     groove: str = "free"
+    skeleton_strength: float = 0.5
+    backbeat_variation: float = 0.5
+    ornament_amount: float = 0.5
 
 
 def generate_dna(
@@ -195,6 +230,7 @@ def generate_dna(
     bounds = PRESET_BOUNDS.get(preset, PRESET_BOUNDS["free"])
     groove_value = groove or default_groove(preset)
     groove_anchor = GROOVE_TEMPLATE_ANCHORS.get(groove_value)
+    groove_profile = GROOVE_PROFILES.get(groove_value, GROOVE_PROFILES["free"])
 
     pulse = GROOVE_PULSES.get(groove_value, _choose_pulse(rng, density, complexity_value, bounds))
     return DrummerDNA(
@@ -218,6 +254,10 @@ def generate_dna(
         dynamic_shape=_choice(rng, bounds, "dynamic_shape", DYNAMIC_SHAPES),
         groove_anchor=groove_anchor or _choice(rng, bounds, "groove_anchor", GROOVE_ANCHORS),
         swing=_bounded(rng, bounds, "swing", rng.uniform(0.0, 0.16) * (0.4 + complexity_value), variation),
+        groove=groove_value,
+        skeleton_strength=_clamp(groove_profile["skeleton_strength"] - variation * 0.20),
+        backbeat_variation=_clamp(groove_profile["backbeat_variation"] + variation * 0.35),
+        ornament_amount=_clamp(groove_profile["ornament_amount"] + variation * 0.45 + complexity_value * 0.10),
     )
 
 

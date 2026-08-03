@@ -23,6 +23,7 @@ class SectionConfig:
     density_end: float | None = None
     fill: int | None = None
     fill_mode: str = "section_end"
+    allowed_voices: tuple[str, ...] | None = None
     dna_overrides: dict[str, Any] = field(default_factory=dict)
 
 
@@ -45,6 +46,7 @@ def load_section_config(path: Path) -> tuple[SectionConfig, ...]:
             density_end=_optional_float(raw.get("density_end"), "density_end", index),
             fill=_optional_int(raw.get("fill"), "fill", index),
             fill_mode=str(raw.get("fill_mode", "section_end")),
+            allowed_voices=_optional_voices(raw.get("allowed"), index),
             dna_overrides=dict(raw.get("dna_overrides", {})),
         )
         if section.bars <= 0:
@@ -69,6 +71,14 @@ def _optional_int(value: Any, field_name: str, index: int) -> int | None:
         return int(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"section {index} {field_name} must be an integer") from exc
+
+
+def _optional_voices(value: Any, index: int) -> tuple[str, ...] | None:
+    if value is None or value == []:
+        return None
+    if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
+        raise ValueError(f"section {index} allowed must be a list of non-empty voice names")
+    return tuple(dict.fromkeys(item.strip() for item in value))
 
 
 def _optional_float(value: Any, field_name: str, index: int) -> float | None:

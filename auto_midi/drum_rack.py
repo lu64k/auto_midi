@@ -20,6 +20,7 @@ GENERAL_MIDI_DRUMS = {
     "closed_hat": DrumVoice("closed_hat", 42, "high"),
     "open_hat": DrumVoice("open_hat", 46, "high"),
     "crash": DrumVoice("crash", 49, "high"),
+    "ride": DrumVoice("ride", 51, "high"),
 }
 
 
