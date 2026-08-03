@@ -7,6 +7,7 @@ from .drummer_dna import DrummerDNA
 from .section_config import SectionConfig
 from .text_parser import BarText, TextMap
 from .time_signature import TimeSignature, parse_time_signature
+from .rock_patterns import pattern_steps, rock_pattern
 
 
 STEPS_PER_BAR = 16
@@ -242,9 +243,14 @@ def _mid_events(
 ) -> list[DrumEvent]:
     events = []
     for step, boost in _anchor_mid_steps(dna):
-        anchor_chance = max(
-            0.75,
-            0.98 - dna.backbeat_variation * 0.10 - (1.0 - dna.skeleton_strength) * 0.06,
+        pattern = rock_pattern(dna.groove)
+        anchor_chance = (
+            1.0 - dna.backbeat_variation * 0.10
+            if pattern
+            else max(
+                0.75,
+                0.98 - dna.backbeat_variation * 0.10 - (1.0 - dna.skeleton_strength) * 0.06,
+            )
         )
         if rng.random() < anchor_chance:
             events.append(DrumEvent(bar.index, step, "snare", _vel(base_velocity + boost + int(dna.backbeat_weight * 8), rng)))
@@ -280,10 +286,16 @@ def _high_events(
 ) -> list[DrumEvent]:
     events: list[DrumEvent] = []
     interval = 4 if dna.pulse == 4 else 2 if dna.pulse == 8 else 1
-    for step in range(0, STEPS_PER_BAR, interval):
-        if step in rests and rng.random() < dna.rest_follow:
+    pattern = rock_pattern(dna.groove)
+    hat_steps = pattern_steps(pattern, "hat_steps", STEPS_PER_BAR) if pattern else tuple(range(0, STEPS_PER_BAR, interval))
+    for step in hat_steps:
+        if step >= STEPS_PER_BAR:
             continue
-        hat_chance = max(dna.high_density, 0.25 + dna.skeleton_strength * 0.65)
+        if pattern and rng.random() < dna.backbeat_variation * 0.15:
+            continue
+        if not pattern and step in rests and rng.random() < dna.rest_follow:
+            continue
+        hat_chance = 1.0 if pattern else max(dna.high_density, 0.25 + dna.skeleton_strength * 0.65)
         if rng.random() < hat_chance:
             velocity = base_velocity - 18 + (9 if step in accents else 0)
             voice = _hat_voice(step, dna, rng)
@@ -363,6 +375,10 @@ def _fill_voices(fill_vocabulary: str) -> list[str]:
 
 
 def _anchor_kick_steps(dna: DrummerDNA, rng: random.Random) -> list[tuple[int, int]]:
+    pattern = rock_pattern(dna.groove)
+    if pattern:
+        kick_steps = pattern_steps(pattern, "kick_steps", STEPS_PER_BAR)
+        return [(step, 12 if step == kick_steps[0] else 4) for step in kick_steps]
     if dna.groove_anchor == "one_drop":
         return [(8, 10)]
     if dna.groove_anchor == "four_on_floor":
@@ -378,6 +394,9 @@ def _anchor_kick_steps(dna: DrummerDNA, rng: random.Random) -> list[tuple[int, i
 
 
 def _anchor_mid_steps(dna: DrummerDNA) -> list[tuple[int, int]]:
+    pattern = rock_pattern(dna.groove)
+    if pattern:
+        return [(step, 10) for step in pattern_steps(pattern, "snare_steps", STEPS_PER_BAR)]
     if dna.groove_anchor == "one_drop":
         return [(8, 12)]
     if dna.groove_anchor == "floating":
@@ -446,6 +465,9 @@ def _vel(value: int, rng: random.Random) -> int:
 
 
 def _swing_offset(step: int, dna: DrummerDNA) -> int:
+    pattern = rock_pattern(dna.groove)
+    if pattern and pattern.swing_ratio and step % 4 == 2:
+        return int(TICKS_PER_STEP * pattern.swing_ratio)
     if dna.style in {"blues", "jazz"} and step % 4 == 2:
         return int(TICKS_PER_STEP * dna.swing)
     if step % 2 == 1:

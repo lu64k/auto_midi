@@ -52,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     if config.print_text_map:
         print_text_map(text_map)
 
-    seed = config.seed if config.seed is not None else random.randrange(1_000_000_000)
+    seed = random.randrange(1_000_000_000) if config.seed is None or config.seed == -1 else config.seed
     rng = random.Random(seed)
     dna = generate_dna(
         text_map=text_map,
@@ -152,7 +152,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--intensity", type=_bounded_int(0, 100), default=settings.intensity)
     parser.add_argument("--fill", type=_bounded_int(0, 100), default=settings.fill)
     parser.add_argument("--randomness", type=_bounded_int(0, 100), default=settings.randomness)
-    parser.add_argument("--seed", type=int, help="Set for repeatable generation.")
+    parser.add_argument("--seed", type=int, help="Set for repeatable generation; use -1 for a new random seed.")
     parser.add_argument("--preset", choices=sorted(PRESET_BOUNDS), default=settings.preset)
     parser.add_argument("--groove", default=settings.groove, help="Named style groove template.")
     parser.add_argument("--time-signature", choices=list(SUPPORTED_TIME_SIGNATURES), default=settings.time_signature)

@@ -88,7 +88,8 @@ def render_song(
         )
 
     try:
-        seed_value = int(seed) if seed is not None else 0
+        requested_seed = int(seed) if seed is not None else -1
+        seed_value = random.randrange(1_000_000_000) if requested_seed == -1 else requested_seed
         bpm_value = int(bpm)
         complexity_value = int(complexity)
         intensity_value = int(intensity)
@@ -199,7 +200,7 @@ def build_demo() -> gr.Blocks:
                         value=settings.time_signature,
                     )
                     bpm = gr.Slider(30, 260, value=settings.bpm, step=1, label="BPM")
-                    seed = gr.Number(value=7, precision=0, label="Seed")
+                    seed = gr.Number(value=7, precision=0, label="Seed（-1 = 随机）")
                 complexity = gr.Slider(0, 100, value=settings.complexity, step=1, label="整体复杂度")
                 intensity = gr.Slider(0, 100, value=settings.intensity, step=1, label="整体强度")
                 fill = gr.Slider(0, 100, value=settings.fill, step=1, label="整体 Fill")

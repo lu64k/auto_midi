@@ -33,6 +33,9 @@ The MIDI file will be written to:
 outputs/poem_drums.mid
 ```
 
+Use a fixed `--seed` to reproduce a take. Use `--seed -1` (or leave it out)
+to generate a new random seed; the actual seed is printed in the result.
+
 ## WAV Preview With A Classic Kit
 
 This repo can render a quick WAV preview from local drum samples. The sample
@@ -119,6 +122,10 @@ hiphop
 trap
 minimal
 rock
+hard_rock
+dream_pop
+post_rock
+psychedelic
 jazz
 blues
 rnb
@@ -129,8 +136,9 @@ reggae
 
 The generator supports `3/4`, `4/4`, and `6/8`. Groove templates are kept
 inside the selected style: Rock defaults to `classic_rock`, with optional
-`driving_rock`, `half_time_rock`, and `sparse_rock`; Reggae defaults to
-`one_drop`. Groove templates keep a style-specific skeleton while randomness
+`driving_rock`, `half_time_rock`, `sparse_rock`, `shuffle_rock`,
+`blues_rock`, `punk_rock`, and `indie_rock`; Reggae defaults to `one_drop`.
+Rock templates use explicit Kick/Snare/Hat step patterns while randomness
 controls bounded variations and ornament density.
 
 Sections can restrict which drum voices are allowed. Omit `allowed` or use an
