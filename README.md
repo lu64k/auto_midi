@@ -14,6 +14,19 @@ python3 -m venv .venv
 .venv/bin/python -m auto_midi examples/poem.txt --bpm 92 --seed 42
 ```
 
+### Local environment
+
+Copy `.env.example` to `.env` and adjust the local defaults. The CLI and
+Gradio app load `.env` automatically; explicit CLI options take precedence.
+Paths in `.env` are relative to the project root.
+
+```bash
+cp .env.example .env
+```
+
+The main settings are `AUTO_MIDI_*` for generation defaults and
+`GRADIO_SERVER_*` for the web app server.
+
 The MIDI file will be written to:
 
 ```text
@@ -80,6 +93,8 @@ samples/classic_kit/crash.wav
 ```bash
 python3 -m auto_midi examples/poem.txt \
   --bpm 88 \
+  --time-signature 4/4 \
+  --groove classic_rock \
   --complexity 65 \
   --intensity 70 \
   --fill 45 \
@@ -109,6 +124,10 @@ country
 funk
 reggae
 ```
+
+The generator supports `3/4`, `4/4`, and `6/8`. Groove templates are kept
+inside the selected style: Rock defaults to `classic_rock`, with optional
+`driving_rock` and `half_time_rock`; Reggae defaults to `one_drop`.
 
 Presets are style boundaries for generating a new drummer DNA. They are not
 fixed drum patterns.

@@ -5,7 +5,8 @@ from pathlib import Path
 import struct
 import wave
 
-from .pattern_generator import DrumEvent, STEPS_PER_BAR
+from .pattern_generator import DrumEvent
+from .time_signature import TimeSignature, parse_time_signature
 from .sample_kit import KitStatus
 
 
@@ -24,6 +25,7 @@ def render_preview_wav(
     output_path: Path,
     bpm: int,
     bar_count: int,
+    time_signature: TimeSignature | str = "4/4",
 ) -> None:
     if not kit_status.ready:
         missing = ", ".join(kit_status.missing)
@@ -33,15 +35,16 @@ def render_preview_wav(
         voice: _load_sample(path)
         for voice, path in kit_status.samples.items()
     }
+    steps_per_bar = parse_time_signature(time_signature).steps_per_bar
     seconds_per_step = 60.0 / bpm / 4.0
-    total_frames = int((bar_count * STEPS_PER_BAR * seconds_per_step + 2.0) * SAMPLE_RATE)
+    total_frames = int((bar_count * steps_per_bar * seconds_per_step + 2.0) * SAMPLE_RATE)
     mix = [0.0] * total_frames
 
     for event in events:
         sample = samples.get(event.voice)
         if sample is None:
             continue
-        start_seconds = event.bar * STEPS_PER_BAR * seconds_per_step + event.step * seconds_per_step
+        start_seconds = event.bar * steps_per_bar * seconds_per_step + event.step * seconds_per_step
         start_seconds += event.offset_ticks / 480.0 * (60.0 / bpm)
         start = max(0, int(start_seconds * SAMPLE_RATE))
         gain = (event.velocity / 127.0) ** 1.35

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import random
 
 from .text_parser import TextMap
+from .groove import GROOVE_ANCHORS as GROOVE_TEMPLATE_ANCHORS, GROOVE_PULSES, default_groove
 
 
 FILL_VOCABULARIES = ("snare_roll", "tom_run", "hat_roll", "silence", "mixed")
@@ -81,7 +82,7 @@ PRESET_BOUNDS = {
         "phrase_memory": (0.45, 0.8),
         "fill_vocabulary": ("tom_run", "snare_roll", "mixed"),
         "dynamic_shape": ("front_heavy", "crescendo", "flat"),
-        "groove_anchor": ("strong_one", "four_on_floor"),
+        "groove_anchor": ("strong_one",),
     },
     "jazz": {
         "pulse": (8, 16),
@@ -173,6 +174,8 @@ class DrummerDNA:
     groove_anchor: str  # Core groove gravity: strong_one, one_drop, four_on_floor, offbeat_push, or floating. 核心 groove 重心：strong_one、one_drop、four_on_floor、offbeat_push 或 floating。
     swing: float  # Timing delay applied to off-steps for swing/shuffle feel. 对非强拍步长施加时值延后，以形成 swing/shuffle 感。
 
+    groove: str = "free"
+
 
 def generate_dna(
     text_map: TextMap,
@@ -182,6 +185,7 @@ def generate_dna(
     fill: int,
     randomness: int,
     preset: str = "free",
+    groove: str | None = None,
 ) -> DrummerDNA:
     density = min(1.0, text_map.average_chars / 16.0)
     variation = _scale(randomness)
@@ -189,8 +193,10 @@ def generate_dna(
     intensity_value = _scale(intensity)
     fill_value = _scale(fill)
     bounds = PRESET_BOUNDS.get(preset, PRESET_BOUNDS["free"])
+    groove_value = groove or default_groove(preset)
+    groove_anchor = GROOVE_TEMPLATE_ANCHORS.get(groove_value)
 
-    pulse = _choose_pulse(rng, density, complexity_value, bounds)
+    pulse = GROOVE_PULSES.get(groove_value, _choose_pulse(rng, density, complexity_value, bounds))
     return DrummerDNA(
         style=preset,
         pulse=pulse,
@@ -210,7 +216,7 @@ def generate_dna(
         fill_aggression=_clamp(fill_value * (0.4 + complexity_value * 0.6) + rng.uniform(-0.1, 0.1)),
         fill_vocabulary=_choice(rng, bounds, "fill_vocabulary", FILL_VOCABULARIES),
         dynamic_shape=_choice(rng, bounds, "dynamic_shape", DYNAMIC_SHAPES),
-        groove_anchor=_choice(rng, bounds, "groove_anchor", GROOVE_ANCHORS),
+        groove_anchor=groove_anchor or _choice(rng, bounds, "groove_anchor", GROOVE_ANCHORS),
         swing=_bounded(rng, bounds, "swing", rng.uniform(0.0, 0.16) * (0.4 + complexity_value), variation),
     )
 

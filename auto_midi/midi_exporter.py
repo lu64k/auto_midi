@@ -4,12 +4,13 @@ from pathlib import Path
 
 from .drum_rack import note_for
 from .pattern_generator import DrumEvent, TICKS_PER_BEAT
+from .time_signature import TimeSignature, parse_time_signature
 
 
 DRUM_CHANNEL = 9
 
 
-def write_midi(events: list[DrumEvent], output_path: Path, bpm: int) -> None:
+def write_midi(events: list[DrumEvent], output_path: Path, bpm: int, time_signature: TimeSignature | str = "4/4") -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     track = bytearray()
     tempo = int(60_000_000 / bpm)
@@ -17,7 +18,8 @@ def write_midi(events: list[DrumEvent], output_path: Path, bpm: int) -> None:
     track.extend(b"\xff\x51\x03")
     track.extend(tempo.to_bytes(3, "big"))
     track.extend(_varlen(0))
-    track.extend(b"\xff\x58\x04\x04\x02\x18\x08")
+    signature = parse_time_signature(time_signature)
+    track.extend(bytes([0xFF, 0x58, 0x04, signature.numerator, signature.midi_denominator_power, 0x18, 0x08]))
 
     midi_messages: list[tuple[int, bytes]] = []
     for event in events:

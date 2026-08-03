@@ -6,10 +6,13 @@ from pathlib import Path
 import random
 
 from .drummer_dna import PRESET_BOUNDS, generate_dna
+from .groove import default_groove, grooves_for_style
 from .midi_exporter import write_midi
 from .pattern_generator import generate_events
 from .section_config import load_section_config
 from .sample_kit import inspect_kit
+from .settings import settings
+from .time_signature import SUPPORTED_TIME_SIGNATURES, parse_time_signature
 from .text_parser import parse_text
 from .wav_preview import render_preview_wav
 
@@ -21,6 +24,8 @@ class RunConfig:
     preview_wav_path: str | None  # WAV preview path; None disables preview, empty string follows MIDI filename.
     sample_kit_path: str  # Folder containing canonical drum samples such as kick.wav and snare.wav.
     preset: str  # Style boundary used to generate DrummerDNA, e.g. reggae, hiphop, jazz, rock.
+    groove: str
+    time_signature: str
     bpm: int  # Tempo in beats per minute.
     complexity: int  # 0-100; controls event density, subdivisions, and ornamental behavior.
     intensity: int  # 0-100; controls velocity and how assertive core drum hits feel.
@@ -34,6 +39,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     config = config_from_args(args)
+    try:
+        signature = parse_time_signature(config.time_signature)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     input_path = Path(config.input_text_path)
     raw = input_path.read_text(encoding="utf-8")
@@ -53,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         fill=config.fill,
         randomness=config.randomness,
         preset=config.preset,
+        groove=config.groove,
     )
     section_configs = load_section_config(Path(args.section_config)) if args.section_config else None
     if section_configs and len(section_configs) != text_map.section_count:
@@ -67,10 +77,11 @@ def main(argv: list[str] | None = None) -> int:
         intensity=config.intensity,
         fill=config.fill,
         section_configs=section_configs,
+        time_signature=signature,
     )
 
-    output_path = Path(config.output_midi_path) if config.output_midi_path else Path("outputs") / f"{input_path.stem}_drums.mid"
-    write_midi(events, output_path, bpm=config.bpm)
+    output_path = Path(config.output_midi_path) if config.output_midi_path else settings.output_dir / f"{input_path.stem}_drums.mid"
+    write_midi(events, output_path, bpm=config.bpm, time_signature=signature)
 
     print(f"Wrote {output_path}")
     if config.preview_wav_path is not None:
@@ -82,6 +93,7 @@ def main(argv: list[str] | None = None) -> int:
             output_path=preview_path,
             bpm=config.bpm,
             bar_count=len(text_map.bars),
+            time_signature=signature,
         )
         print(f"Wrote {preview_path}")
     print(f"Seed: {seed}")
@@ -116,6 +128,8 @@ def config_from_args(args: argparse.Namespace) -> RunConfig:
         preview_wav_path=args.preview_wav,
         sample_kit_path=args.sample_kit,
         preset=args.preset,
+        groove=args.groove,
+        time_signature=args.time_signature,
         bpm=args.bpm,
         complexity=args.complexity,
         intensity=args.intensity,
@@ -133,13 +147,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("input", help="UTF-8 text file. One non-empty line is treated as one bar.")
     parser.add_argument("--output", "-o", help="Output .mid path. Defaults to outputs/<input>_drums.mid.")
-    parser.add_argument("--bpm", type=_bounded_int(30, 260), default=92)
-    parser.add_argument("--complexity", type=_bounded_int(0, 100), default=55)
-    parser.add_argument("--intensity", type=_bounded_int(0, 100), default=65)
-    parser.add_argument("--fill", type=_bounded_int(0, 100), default=35)
-    parser.add_argument("--randomness", type=_bounded_int(0, 100), default=45)
+    parser.add_argument("--bpm", type=_bounded_int(30, 260), default=settings.bpm)
+    parser.add_argument("--complexity", type=_bounded_int(0, 100), default=settings.complexity)
+    parser.add_argument("--intensity", type=_bounded_int(0, 100), default=settings.intensity)
+    parser.add_argument("--fill", type=_bounded_int(0, 100), default=settings.fill)
+    parser.add_argument("--randomness", type=_bounded_int(0, 100), default=settings.randomness)
     parser.add_argument("--seed", type=int, help="Set for repeatable generation.")
-    parser.add_argument("--preset", choices=sorted(PRESET_BOUNDS), default="free")
+    parser.add_argument("--preset", choices=sorted(PRESET_BOUNDS), default=settings.preset)
+    parser.add_argument("--groove", default=settings.groove, help="Named style groove template.")
+    parser.add_argument("--time-signature", choices=list(SUPPORTED_TIME_SIGNATURES), default=settings.time_signature)
     parser.add_argument("--section-config", help="JSON file with explicit per-section drum controls.")
     parser.add_argument("--print-text-map", action="store_true", help="Print NLP token, phrase, and rhyme analysis.")
     parser.add_argument(
@@ -148,7 +164,7 @@ def build_parser() -> argparse.ArgumentParser:
         const="",
         help="Render a WAV preview. Optionally pass the output .wav path.",
     )
-    parser.add_argument("--sample-kit", default="samples/classic_kit", help="Folder containing canonical drum sample WAVs.")
+    parser.add_argument("--sample-kit", default=str(settings.sample_kit), help="Folder containing canonical drum sample WAVs.")
     return parser
 
 

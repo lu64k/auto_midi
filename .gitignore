@@ -8,6 +8,7 @@ __pycache__/
 htmlcov/
 .venv/
 venv/
+.env
 outputs/
 samples/
 judd-madden-drum-samples/

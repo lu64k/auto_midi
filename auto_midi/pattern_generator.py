@@ -6,6 +6,7 @@ import random
 from .drummer_dna import DrummerDNA
 from .section_config import SectionConfig
 from .text_parser import BarText, TextMap
+from .time_signature import TimeSignature, parse_time_signature
 
 
 STEPS_PER_BAR = 16
@@ -22,9 +23,11 @@ class DrumEvent:
     duration_steps: int = 1  # Event duration in sixteenth-note steps. 事件时长，单位为 16 分音符步数。
     offset_ticks: int = 0  # Timing offset in MIDI ticks for swing/human feel. 时值偏移量（MIDI tick），用于 swing/人性化。
 
+    bar_length_ticks: int = STEPS_PER_BAR * TICKS_PER_STEP
+
     @property
     def absolute_tick(self) -> int:
-        return self.bar * STEPS_PER_BAR * TICKS_PER_STEP + self.step * TICKS_PER_STEP + self.offset_ticks
+        return self.bar * self.bar_length_ticks + self.step * TICKS_PER_STEP + self.offset_ticks
 
     @property
     def duration_ticks(self) -> int:
@@ -38,7 +41,10 @@ def generate_events(
     intensity: int,
     fill: int,
     section_configs: tuple[SectionConfig, ...] | None = None,
+    time_signature: TimeSignature | str = "4/4",
 ) -> list[DrumEvent]:
+    global STEPS_PER_BAR
+    STEPS_PER_BAR = parse_time_signature(time_signature).steps_per_bar
     events: list[DrumEvent] = []
     previous_bar_events: list[DrumEvent] = []
 
@@ -76,7 +82,9 @@ def generate_events(
         events.extend(bar_events)
         previous_bar_events = bar_events
 
-    return sorted(_dedupe(events), key=lambda event: (event.absolute_tick, event.voice))
+    bar_length_ticks = STEPS_PER_BAR * TICKS_PER_STEP
+    events = [replace(event, bar_length_ticks=bar_length_ticks) for event in _dedupe(events)]
+    return sorted(events, key=lambda event: (event.absolute_tick, event.voice))
 
 
 def token_steps(bar: BarText) -> set[int]:
@@ -231,7 +239,7 @@ def _mid_events(
     for step in accents:
         if dna.groove_anchor == "one_drop" and step == 0:
             continue
-        if step in rests or step in {4, 12}:
+        if step in rests or step in _backbeat_steps():
             continue
         if rng.random() < dna.mid_bias * dna.accent_follow * 0.28:
             voice = "clap" if rng.random() < 0.35 else "rim"
@@ -239,11 +247,11 @@ def _mid_events(
         elif rng.random() < dna.ghost_note_bias * 0.22:
             voice = "rim" if rng.random() < 0.65 else "snare"
             events.append(DrumEvent(bar.index, step, voice, _vel(base_velocity - 28, rng), offset_ticks=_swing_offset(step, dna)))
-    for step in (2, 6, 10, 14):
+    for step in _eighth_steps(1, 3, 5, 7):
         if step not in rests and rng.random() < dna.ghost_note_bias * dna.syncopation * 0.2:
             events.append(DrumEvent(bar.index, step, "rim", _vel(base_velocity - 32, rng), offset_ticks=_swing_offset(step, dna)))
     for step in phrase_end_steps(bar):
-        if step not in rests and step not in {4, 12} and rng.random() < dna.mid_bias * 0.22:
+        if step not in rests and step not in _backbeat_steps() and rng.random() < dna.mid_bias * 0.22:
             events.append(DrumEvent(bar.index, step, "rim", _vel(base_velocity - 12, rng), offset_ticks=_swing_offset(step, dna)))
     if bar.has_strong_ending and rng.random() < dna.mid_bias:
         events.append(DrumEvent(bar.index, 15, "clap", _vel(base_velocity + 6, rng), offset_ticks=_swing_offset(15, dna)))
@@ -273,14 +281,14 @@ def _high_events(
             events.append(DrumEvent(bar.index, step, _hat_voice(step, dna, rng), _vel(base_velocity - 8, rng), offset_ticks=_swing_offset(step, dna)))
 
     if rng.random() < dna.syncopation * (0.2 + dna.hat_openness * 0.45):
-        events.append(DrumEvent(bar.index, rng.choice([6, 10, 14]), "open_hat", _vel(base_velocity - 6, rng)))
+        events.append(DrumEvent(bar.index, rng.choice(_eighth_steps(3, 5, 7)), "open_hat", _vel(base_velocity - 6, rng)))
     return events
 
 
 def _fill_events(bar: BarText, dna: DrummerDNA, rng: random.Random, base_velocity: int) -> list[DrumEvent]:
     if dna.fill_vocabulary == "silence":
         return []
-    start = rng.choice([8, 10, 12])
+    start = rng.choice(_eighth_steps(4, 5, 6))
     voices = _fill_voices(dna.fill_vocabulary)
     events: list[DrumEvent] = []
     for step in range(start, STEPS_PER_BAR):
@@ -304,7 +312,7 @@ def _memory_events(
     for event in previous_bar_events:
         if dna.groove_anchor == "one_drop" and event.step == 0 and event.voice in {"kick", "snare", "rim", "clap"}:
             continue
-        if event.voice == "crash" or event.step in {4, 12}:
+        if event.voice == "crash" or event.step in _backbeat_steps():
             continue
         if rng.random() < keep_chance and event.voice in {"kick", "closed_hat", "open_hat", "rim"}:
             velocity = max(1, min(127, int(event.velocity * rng.uniform(0.85, 1.05))))
@@ -322,7 +330,9 @@ def _memory_events(
 
 
 def _hat_voice(step: int, dna: DrummerDNA, rng: random.Random) -> str:
-    if step in {6, 10, 14} and rng.random() < dna.hat_openness:
+    if dna.style == "jazz":
+        return "ride"
+    if step in set(_eighth_steps(3, 5, 7)) and rng.random() < dna.hat_openness:
         return "open_hat"
     if rng.random() < dna.hat_openness * 0.2:
         return "open_hat"
@@ -351,7 +361,7 @@ def _anchor_kick_steps(dna: DrummerDNA, rng: random.Random) -> list[tuple[int, i
         return steps
     if dna.groove_anchor == "floating":
         return [(rng.choice([3, 6, 8, 10]), 4)]
-    return [(0, 12)]
+    return [(0, 12)] if STEPS_PER_BAR == 16 else [(0, 10), (STEPS_PER_BAR // 2, 4)]
 
 
 def _anchor_mid_steps(dna: DrummerDNA) -> list[tuple[int, int]]:
@@ -361,7 +371,17 @@ def _anchor_mid_steps(dna: DrummerDNA) -> list[tuple[int, int]]:
         return [(4, 6), (12, 5)]
     if dna.groove_anchor == "offbeat_push":
         return [(4, 8), (10, 5), (12, 8)]
+    if STEPS_PER_BAR == 12:
+        return [(6, 10)]
     return [(4, 10), (12, 8)]
+
+
+def _eighth_steps(*positions: int) -> list[int]:
+    return [min(STEPS_PER_BAR - 1, round(position * STEPS_PER_BAR / 8)) for position in positions]
+
+
+def _backbeat_steps() -> set[int]:
+    return {6} if STEPS_PER_BAR == 12 else {4, 12}
 
 
 def _apply_dynamic_shape(events: list[DrumEvent], dna: DrummerDNA) -> list[DrumEvent]:
