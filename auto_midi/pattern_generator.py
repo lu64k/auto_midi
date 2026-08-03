@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import random
 
 from .drummer_dna import DrummerDNA
+from .section_config import SectionConfig
 from .text_parser import BarText, TextMap
 
 
@@ -36,27 +37,42 @@ def generate_events(
     rng: random.Random,
     intensity: int,
     fill: int,
+    section_configs: tuple[SectionConfig, ...] | None = None,
 ) -> list[DrumEvent]:
     events: list[DrumEvent] = []
-    base_velocity = int(45 + intensity * 0.55)
     previous_bar_events: list[DrumEvent] = []
 
     for bar in text_map.bars:
+        section = _section_for_bar(text_map, bar, section_configs)
+        section_position = _section_position(text_map, bar)
+        bar_intensity = _interpolate(
+            section.intensity_start if section and section.intensity_start is not None else intensity,
+            section.intensity_end if section and section.intensity_end is not None else intensity,
+            section_position,
+        )
+        bar_density = _interpolate(
+            section.density_start if section and section.density_start is not None else 0.5,
+            section.density_end if section and section.density_end is not None else 0.5,
+            section_position,
+        )
+        bar_dna = _apply_section_dna(dna, section, bar_density)
+        bar_fill = section.fill if section and section.fill is not None else fill
+        base_velocity = int(45 + bar_intensity * 0.55)
         accents = token_steps(bar)
         rests = punctuation_steps(bar)
         bar_events = []
-        bar_events.extend(_memory_events(bar, dna, rng, previous_bar_events))
-        bar_events.extend(_low_events(bar, dna, rng, base_velocity, accents, rests))
-        bar_events.extend(_mid_events(bar, dna, rng, base_velocity, accents, rests))
-        bar_events.extend(_high_events(bar, dna, rng, base_velocity, accents, rests))
+        bar_events.extend(_memory_events(bar, bar_dna, rng, previous_bar_events))
+        bar_events.extend(_low_events(bar, bar_dna, rng, base_velocity, accents, rests))
+        bar_events.extend(_mid_events(bar, bar_dna, rng, base_velocity, accents, rests))
+        bar_events.extend(_high_events(bar, bar_dna, rng, base_velocity, accents, rests))
 
-        if should_fill(bar, dna, rng, fill):
-            bar_events.extend(_fill_events(bar, dna, rng, base_velocity))
+        if should_fill(bar, bar_dna, rng, bar_fill, section, section_position):
+            bar_events.extend(_fill_events(bar, bar_dna, rng, base_velocity))
 
         if bar.index == 0 or bar.section != text_map.bars[bar.index - 1].section:
             bar_events.append(DrumEvent(bar.index, 0, "crash", _vel(base_velocity + 18, rng)))
 
-        bar_events = _apply_dynamic_shape(bar_events, dna)
+        bar_events = _apply_dynamic_shape(bar_events, bar_dna)
         events.extend(bar_events)
         previous_bar_events = bar_events
 
@@ -97,13 +113,81 @@ def phrase_end_steps(bar: BarText) -> set[int]:
     }
 
 
-def should_fill(bar: BarText, dna: DrummerDNA, rng: random.Random, fill: int) -> bool:
+def should_fill(
+    bar: BarText,
+    dna: DrummerDNA,
+    rng: random.Random,
+    fill: int,
+    section: SectionConfig | None = None,
+    section_position: float = 0.0,
+) -> bool:
+    if section and section.fill_mode == "none":
+        return False
+    if section and section.fill_mode == "last_bar" and section_position < 0.999:
+        return False
+    if section and section.fill_mode == "last_2_bars" and section_position < 0.5:
+        return False
+    if section and section.fill_mode == "section_end" and not bar.ends_section:
+        return False
     chance = fill / 100.0 * dna.fill_aggression
-    if bar.ends_section:
+    if section and section.fill_mode == "every_4":
+        if (bar.index + 1) % 4 != 0:
+            return False
+    elif bar.ends_section:
         chance += 0.35 * dna.fill_aggression
-    elif (bar.index + 1) % 4 == 0:
+    elif not section and (bar.index + 1) % 4 == 0:
         chance += 0.15 * dna.fill_aggression
     return rng.random() < min(0.9, chance)
+
+
+def _section_for_bar(
+    text_map: TextMap,
+    bar: BarText,
+    section_configs: tuple[SectionConfig, ...] | None,
+) -> SectionConfig | None:
+    if not section_configs:
+        return None
+    if bar.section >= len(section_configs):
+        raise ValueError(f"no section config for parsed section {bar.section}")
+    section = section_configs[bar.section]
+    section_bar_count = sum(1 for item in text_map.bars if item.section == bar.section)
+    if section_bar_count != section.bars:
+        raise ValueError(
+            f"section {bar.section} ({section.name}) expects {section.bars} bars, "
+            f"but input text contains {section_bar_count} bars"
+        )
+    return section
+
+
+def _section_position(text_map: TextMap, bar: BarText) -> float:
+    section_bars = [item for item in text_map.bars if item.section == bar.section]
+    if len(section_bars) <= 1:
+        return 1.0
+    return section_bars.index(bar) / (len(section_bars) - 1)
+
+
+def _apply_section_dna(
+    dna: DrummerDNA,
+    section: SectionConfig | None,
+    density: float,
+) -> DrummerDNA:
+    if section is None:
+        return dna
+    values = dict(section.dna_overrides)
+    for key in values:
+        if not hasattr(dna, key):
+            raise ValueError(f"unknown DrummerDNA override: {key}")
+        if key == "style":
+            raise ValueError("section-level style override is not supported")
+    density_scale = max(0.0, min(2.0, density * 2.0))
+    for key in ("low_bias", "mid_bias", "high_density"):
+        if key not in values:
+            values[key] = max(0.0, min(1.0, getattr(dna, key) * density_scale))
+    return replace(dna, **values)
+
+
+def _interpolate(start: float, end: float, position: float) -> float:
+    return start + (end - start) * max(0.0, min(1.0, position))
 
 
 def _low_events(

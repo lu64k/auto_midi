@@ -8,6 +8,7 @@ import random
 from .drummer_dna import PRESET_BOUNDS, generate_dna
 from .midi_exporter import write_midi
 from .pattern_generator import generate_events
+from .section_config import load_section_config
 from .sample_kit import inspect_kit
 from .text_parser import parse_text
 from .wav_preview import render_preview_wav
@@ -31,7 +32,8 @@ class RunConfig:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    config = config_from_args(parser.parse_args(argv))
+    args = parser.parse_args(argv)
+    config = config_from_args(args)
 
     input_path = Path(config.input_text_path)
     raw = input_path.read_text(encoding="utf-8")
@@ -52,7 +54,20 @@ def main(argv: list[str] | None = None) -> int:
         randomness=config.randomness,
         preset=config.preset,
     )
-    events = generate_events(text_map, dna, rng, intensity=config.intensity, fill=config.fill)
+    section_configs = load_section_config(Path(args.section_config)) if args.section_config else None
+    if section_configs and len(section_configs) != text_map.section_count:
+        parser.error(
+            f"section config contains {len(section_configs)} sections, "
+            f"but input text contains {text_map.section_count}"
+        )
+    events = generate_events(
+        text_map,
+        dna,
+        rng,
+        intensity=config.intensity,
+        fill=config.fill,
+        section_configs=section_configs,
+    )
 
     output_path = Path(config.output_midi_path) if config.output_midi_path else Path("outputs") / f"{input_path.stem}_drums.mid"
     write_midi(events, output_path, bpm=config.bpm)
@@ -125,6 +140,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--randomness", type=_bounded_int(0, 100), default=45)
     parser.add_argument("--seed", type=int, help="Set for repeatable generation.")
     parser.add_argument("--preset", choices=sorted(PRESET_BOUNDS), default="free")
+    parser.add_argument("--section-config", help="JSON file with explicit per-section drum controls.")
     parser.add_argument("--print-text-map", action="store_true", help="Print NLP token, phrase, and rhyme analysis.")
     parser.add_argument(
         "--preview-wav",

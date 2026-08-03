@@ -1,0 +1,47 @@
+{
+  "sections": [
+    {
+      "name": "intro",
+      "bars": 8,
+      "intensity_start": 10,
+      "intensity_end": 25,
+      "density_start": 0.05,
+      "density_end": 0.20,
+      "fill": 0,
+      "fill_mode": "none"
+    },
+    {
+      "name": "verse_1",
+      "bars": 16,
+      "intensity_start": 25,
+      "intensity_end": 35,
+      "density_start": 0.25,
+      "density_end": 0.38,
+      "fill": 10,
+      "fill_mode": "section_end"
+    },
+    {
+      "name": "chorus_1",
+      "bars": 16,
+      "intensity_start": 50,
+      "intensity_end": 65,
+      "density_start": 0.52,
+      "density_end": 0.65,
+      "fill": 25,
+      "fill_mode": "every_4"
+    },
+    {
+      "name": "outro",
+      "bars": 16,
+      "intensity_start": 45,
+      "intensity_end": 10,
+      "density_start": 0.50,
+      "density_end": 0.05,
+      "fill": 5,
+      "fill_mode": "last_2_bars",
+      "dna_overrides": {
+        "dynamic_shape": "decrescendo"
+      }
+    }
+  ]
+}
