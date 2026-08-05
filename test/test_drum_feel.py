@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from auto_midi.drum_feel import RuleBasedDrumFeelAgent
+from auto_midi.drum_feel import RuleBasedDrumFeelAgent, parse_drum_feels
 from auto_midi.song_structure import parse_song_structure
 
 
@@ -36,6 +36,21 @@ class DrumFeelTests(unittest.TestCase):
     def test_chorus_is_more_energetic_than_intro(self) -> None:
         feels = RuleBasedDrumFeelAgent().generate(self.structure, "rock", "classic_rock", seed=3)
         self.assertGreater(feels[2].energy, feels[0].energy)
+
+    def test_user_edited_feels_are_validated_and_preserved(self) -> None:
+        original = RuleBasedDrumFeelAgent().generate(self.structure, "rock", "classic_rock", seed=3)
+        payload = [feel.to_dict() for feel in original]
+        payload[1]["density"] = 0.61
+        edited = parse_drum_feels(payload, self.structure)
+        self.assertEqual(edited[1].density, 0.61)
+        self.assertEqual(edited[1].source, "user_edit")
+
+    def test_user_edited_feel_rejects_out_of_range_values(self) -> None:
+        original = RuleBasedDrumFeelAgent().generate(self.structure, "rock", "classic_rock", seed=3)
+        payload = [feel.to_dict() for feel in original]
+        payload[0]["energy"] = 1.5
+        with self.assertRaisesRegex(ValueError, "between 0 and 1"):
+            parse_drum_feels(payload, self.structure)
 
 
 if __name__ == "__main__":

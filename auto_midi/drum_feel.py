@@ -8,6 +8,7 @@ the rest of the pipeline does not depend on a particular model provider.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import json
 import random
 from typing import Any, Protocol
 
@@ -37,6 +38,70 @@ class DrumFeel:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def parse_drum_feels(
+    payload: Any,
+    structure: SongStructure,
+    source: str = "user_edit",
+) -> tuple[DrumFeel, ...]:
+    """Parse user-edited feel JSON and enforce authored section order."""
+
+    if isinstance(payload, dict):
+        payload = payload.get("sections", payload.get("feels"))
+    if not isinstance(payload, list):
+        raise ValueError("drum feel JSON must contain a sections list")
+    if len(payload) != len(structure.sections):
+        raise ValueError(
+            f"drum feel JSON contains {len(payload)} sections, expected {len(structure.sections)}"
+        )
+
+    feels: list[DrumFeel] = []
+    for section, raw in zip(structure.sections, payload):
+        if not isinstance(raw, dict):
+            raise ValueError(f"drum feel for {section.id} must be an object")
+        if str(raw.get("section_id", "")).strip() != section.id:
+            raise ValueError(f"drum feel section id must be {section.id!r}")
+        feels.append(
+            DrumFeel(
+                section_id=section.id,
+                section_type=str(raw.get("section_type", section.type)),
+                groove=str(raw.get("groove", "free")),
+                description=str(raw.get("description", "")).strip(),
+                energy=_feel_number(raw.get("energy"), section.id, "energy"),
+                density=_feel_number(raw.get("density"), section.id, "density"),
+                backbeat_strength=_feel_number(raw.get("backbeat_strength"), section.id, "backbeat_strength"),
+                syncopation=_feel_number(raw.get("syncopation"), section.id, "syncopation"),
+                swing=_feel_number(raw.get("swing"), section.id, "swing"),
+                variation=_feel_number(raw.get("variation"), section.id, "variation"),
+                fill_level=_feel_number(raw.get("fill_level"), section.id, "fill_level"),
+                crash_usage=str(raw.get("crash_usage", "accent_only")),
+                dropout=_feel_number(raw.get("dropout"), section.id, "dropout"),
+                chord_context=tuple(tuple(str(chord) for chord in bar) for bar in raw.get("chord_context", [])),
+                allowed_voices=_optional_voice_tuple(raw.get("allowed_voices")),
+                required_voices=tuple(str(voice) for voice in raw.get("required_voices", [])),
+                source=source,
+            )
+        )
+    return tuple(feels)
+
+
+def _feel_number(value: Any, section_id: str, field_name: str) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"drum feel {section_id} {field_name} must be a number") from exc
+    if not 0.0 <= parsed <= 1.0:
+        raise ValueError(f"drum feel {section_id} {field_name} must be between 0 and 1")
+    return parsed
+
+
+def _optional_voice_tuple(value: Any) -> tuple[str, ...] | None:
+    if value in (None, []):
+        return None
+    if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
+        raise ValueError("drum feel allowed_voices must be a list of non-empty names")
+    return tuple(dict.fromkeys(item.strip() for item in value))
 
 
 class DrumFeelAgent(Protocol):
@@ -91,6 +156,68 @@ class RuleBasedDrumFeelAgent:
             )
             previous_energy = energy
         return tuple(result)
+
+
+class LLMDrumFeelAgent:
+    """OpenAI-compatible model-backed feel agent with strict JSON validation."""
+
+    def __init__(self, client):
+        self.client = client
+
+    def generate(self, structure: SongStructure, preset: str, groove: str | None, seed: int) -> tuple[DrumFeel, ...]:
+        context = {
+            "title": structure.title,
+            "bpm": structure.bpm,
+            "time_signature": structure.time_signature,
+            "key": structure.key,
+            "preset": preset,
+            "groove": groove,
+            "sections": [
+                {
+                    "id": section.id,
+                    "type": section.type,
+                    "index": section.index,
+                    "bars": section.bars,
+                    "chords": [list(bar) for bar in resolved_chord_bars(structure, section.id)],
+                    "repeat_of": section.repeat_of,
+                }
+                for section in structure.sections
+            ],
+        }
+        payload = self.client.complete_json(_SYSTEM_PROMPT, json.dumps(context, ensure_ascii=False), seed)
+        return parse_drum_feels(payload, structure, source="llm")
+
+
+def build_drum_feel_agent():
+    """Use the configured gateway when a key exists, otherwise use local rules."""
+
+    from .llm_client import OpenAICompatibleClient
+    from .settings import settings
+
+    api_key = settings.llm_api_key()
+    if settings.llm_enabled and api_key:
+        return LLMDrumFeelAgent(
+            OpenAICompatibleClient(
+                base_url=settings.llm_base_url,
+                api_key=api_key,
+                model=settings.llm_model,
+                timeout=settings.llm_timeout,
+            )
+        )
+    return RuleBasedDrumFeelAgent()
+
+
+_SYSTEM_PROMPT = """You are a drum-arrangement agent. Return JSON only.
+Create exactly one feel object for every input section, in the same order and
+with the same section_id. Do not invent chords: chord_context must be empty
+when the input section has no chords. Use values from 0 to 1 for every numeric
+feel field. allowed_voices=[] or null means all drum voices are allowed;
+required_voices is only for voices that must occur. Prefer existing groove
+names. The output root must be {\"sections\": [...]}. Each object must contain:
+section_id, section_type, groove, description, energy, density,
+backbeat_strength, syncopation, swing, variation, fill_level, crash_usage,
+dropout, chord_context, allowed_voices, required_voices.
+"""
 
 
 def _section_defaults(section_type: str) -> dict[str, float]:

@@ -43,6 +43,33 @@ def _env_path(name: str, default: Path) -> Path:
     return path if path.is_absolute() else PROJECT_ROOT / path
 
 
+def _system_environment_value(name: str) -> str:
+    """Read process env first, then Windows User/Machine env when available."""
+
+    value = os.getenv(name)
+    if value:
+        return value
+    if os.name != "nt":
+        return ""
+    try:
+        import winreg
+
+        for root, subkey in (
+            (winreg.HKEY_CURRENT_USER, "Environment"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+        ):
+            try:
+                with winreg.OpenKey(root, subkey) as key:
+                    value, _ = winreg.QueryValueEx(key, name)
+                    if value:
+                        return str(value)
+            except FileNotFoundError:
+                continue
+    except ImportError:  # pragma: no cover - only relevant outside normal Windows Python.
+        pass
+    return ""
+
+
 @dataclass(frozen=True)
 class Settings:
     bpm: int = _env_int("AUTO_MIDI_BPM", 92)
@@ -59,6 +86,16 @@ class Settings:
     gradio_server_port: int = _env_int("GRADIO_SERVER_PORT", 8006)
     gradio_share: bool = _env_bool("GRADIO_SHARE", False)
     test_mode: bool = _env_bool("AUTO_MIDI_TEST_MODE", True)
+    llm_enabled: bool = _env_bool("AUTO_MIDI_LLM_ENABLED", True)
+    llm_base_url: str = os.getenv("AUTO_MIDI_LLM_BASE_URL", "http://gpus.pixo.local:10086/v1")
+    llm_model: str = os.getenv("AUTO_MIDI_LLM_MODEL", "deepseek-v4-flash")
+    llm_api_key_env: str = os.getenv("AUTO_MIDI_LLM_API_KEY_ENV", "10086")
+    llm_timeout: int = _env_int("AUTO_MIDI_LLM_TIMEOUT", 90)
+
+    def llm_api_key(self) -> str:
+        """Read the key on demand so it is never stored in Settings repr/files."""
+
+        return _system_environment_value(self.llm_api_key_env).strip()
 
 
 settings = Settings()

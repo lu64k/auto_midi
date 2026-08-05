@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 import random
 import tempfile
@@ -8,7 +9,10 @@ import tempfile
 import gradio as gr
 
 from auto_midi.drummer_dna import PRESET_BOUNDS, generate_dna
+from auto_midi.drum_execution import compile_execution_config
+from auto_midi.drum_feel import RuleBasedDrumFeelAgent, build_drum_feel_agent, parse_drum_feels
 from auto_midi.groove import default_groove, grooves_for_style
+from auto_midi.llm_client import LLMError
 from auto_midi.midi_exporter import write_midi
 from auto_midi.pattern_generator import generate_events
 from auto_midi.sample_kit import inspect_kit
@@ -43,6 +47,29 @@ def _groove_dropdown_update(style: str):
     return gr.Dropdown(choices=list(options), value=default_groove(style))
 
 
+def _execution_config_payload(configs):
+    payload = []
+    for config in configs:
+        payload.append(
+            {
+                "name": config.name,
+                "type": config.section_type,
+                "bars": config.bars,
+                "intensity_start": config.intensity_start,
+                "intensity_end": config.intensity_end,
+                "density_start": config.density_start,
+                "density_end": config.density_end,
+                "fill": config.fill,
+                "fill_mode": config.fill_mode,
+                "allowed": list(config.allowed_voices or []),
+                "required": list(config.required_voices),
+                "chord_bars": [list(bar) for bar in config.chord_bars],
+                "dna_overrides": config.dna_overrides,
+            }
+        )
+    return {"sections": payload}
+
+
 def render_song(
     lyrics: str | None,
     song_structure_json: str | None,
@@ -57,6 +84,8 @@ def render_song(
     time_signature: str,
     seed: int | float | None,
     sample_kit: str | None,
+    feel_override_json: str | None = None,
+    execution_override_json: str | None = None,
 ):
     if not (lyrics or "").strip():
         if settings.test_mode:
@@ -67,6 +96,8 @@ def render_song(
     if not text_map.bars:
         raise gr.Error("no lyric bars were parsed")
     structure = None
+    agent_feels = None
+    agent_execution = None
     if (song_structure_json or "").strip():
         try:
             structure = parse_song_structure(json.loads(song_structure_json))
@@ -131,6 +162,54 @@ def render_song(
         raise gr.Error("复杂度、强度、Fill 和随机性必须在 0 到 100 之间。")
     preset_value = preset if preset in PRESET_BOUNDS else settings.preset
     groove_value = groove if groove in grooves_for_style(preset_value) else default_groove(preset_value)
+    summary_warning = None
+    if structure:
+        if (feel_override_json or "").strip():
+            agent_feels = None
+        else:
+            agent = build_drum_feel_agent()
+            try:
+                agent_feels = agent.generate(
+                    structure,
+                    preset=preset_value,
+                    groove=groove_value,
+                    seed=seed_value,
+                )
+            except (LLMError, ValueError) as exc:
+                agent_feels = RuleBasedDrumFeelAgent().generate(
+                    structure,
+                    preset=preset_value,
+                    groove=groove_value,
+                    seed=seed_value,
+                )
+                summary_warning = f"LLM Agent 调用失败，已回退规则 Agent：{exc}"
+        if (feel_override_json or "").strip():
+            try:
+                agent_feels = parse_drum_feels(json.loads(feel_override_json), structure)
+            except (TypeError, json.JSONDecodeError, ValueError) as exc:
+                raise gr.Error(f"段落鼓点感觉 JSON 无效：{exc}") from exc
+        agent_execution = compile_execution_config(structure, agent_feels)
+        section_configs = agent_execution
+        if (execution_override_json or "").strip():
+            try:
+                json.loads(execution_override_json)
+            except (TypeError, json.JSONDecodeError) as exc:
+                raise gr.Error(f"最终鼓执行配置 JSON 无法解析：{exc}") from exc
+            with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as override_file:
+                override_file.write(execution_override_json)
+                override_path = Path(override_file.name)
+            try:
+                section_configs = load_section_config(override_path)
+            except (OSError, TypeError, ValueError) as exc:
+                raise gr.Error(f"最终鼓执行配置无效：{exc}") from exc
+            finally:
+                override_path.unlink(missing_ok=True)
+            if len(section_configs) != len(structure.sections):
+                raise gr.Error(
+                    f"最终鼓执行配置包含 {len(section_configs)} 段，"
+                    f"但歌曲结构包含 {len(structure.sections)} 段"
+                )
+            agent_execution = section_configs
     try:
         signature = parse_time_signature(structure.time_signature if structure else time_signature)
     except ValueError as exc:
@@ -194,9 +273,20 @@ def render_song(
     if structure:
         summary["song_structure"] = structure.title
         summary["key"] = structure.key
+        summary["agent"] = agent_feels[0].source if agent_feels else "manual"
+    if summary_warning:
+        summary["warning"] = summary_warning
     if not kit_status.ready:
         summary["warning"] = f"测试模式跳过 WAV：样本包缺少 {', '.join(kit_status.missing)}"
-    return (str(wav_path) if kit_status.ready else None), str(midi_path), summary
+    return (
+        str(wav_path) if kit_status.ready else None,
+        str(midi_path),
+        summary,
+        [asdict(feel) for feel in agent_feels] if agent_feels else None,
+        json.dumps(_execution_config_payload(agent_execution), ensure_ascii=False, indent=2)
+        if agent_execution
+        else section_json,
+    )
 
 
 def build_demo() -> gr.Blocks:
@@ -248,10 +338,12 @@ def build_demo() -> gr.Blocks:
             audio = gr.Audio(label="WAV 预览", type="filepath")
             midi = gr.File(label="MIDI 下载")
         summary = gr.JSON(label="生成摘要")
+        feel_output = gr.JSON(label="段落鼓点感觉 Agent 输出")
+        execution_output = gr.Code(label="最终鼓执行配置", language="json", lines=18)
         generate.click(
             fn=render_song,
-            inputs=[lyrics, song_structure_json, section_json, bpm, complexity, intensity, fill, randomness, preset, groove, time_signature, seed, sample_kit],
-            outputs=[audio, midi, summary],
+            inputs=[lyrics, song_structure_json, section_json, bpm, complexity, intensity, fill, randomness, preset, groove, time_signature, seed, sample_kit, feel_output, execution_output],
+            outputs=[audio, midi, summary, feel_output, execution_output],
         )
         preset.change(fn=_groove_dropdown_update, inputs=preset, outputs=groove)
     return demo

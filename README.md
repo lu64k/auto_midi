@@ -132,6 +132,21 @@ to explicitly reuse another section's chords.
 The Gradio app exposes the same structure JSON as an optional input. When it is
 empty, the existing manual drum execution config remains available.
 
+### Internal LLM gateway
+
+When the system environment variable `10086` is available, the Gradio structure
+mode uses the configured OpenAI-compatible gateway for Drum Feel generation:
+
+```text
+AUTO_MIDI_LLM_BASE_URL=http://gpus.pixo.local:10086/v1
+AUTO_MIDI_LLM_MODEL=deepseek-v4-flash
+AUTO_MIDI_LLM_API_KEY_ENV=10086
+```
+
+The key is read at runtime and is never written to `.env`, output files, or
+logs. If the gateway is unavailable or returns invalid JSON, generation falls
+back to the deterministic local Feel Agent.
+
 Available style constraints:
 
 ```text
