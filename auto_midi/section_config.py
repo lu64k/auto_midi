@@ -25,6 +25,9 @@ class SectionConfig:
     fill_mode: str = "section_end"
     allowed_voices: tuple[str, ...] | None = None
     dna_overrides: dict[str, Any] = field(default_factory=dict)
+    section_type: str | None = None
+    chord_bars: tuple[tuple[str, ...], ...] = ()
+    repeat_of: str | None = None
 
 
 def load_section_config(path: Path) -> tuple[SectionConfig, ...]:
@@ -48,6 +51,9 @@ def load_section_config(path: Path) -> tuple[SectionConfig, ...]:
             fill_mode=str(raw.get("fill_mode", "section_end")),
             allowed_voices=_optional_voices(raw.get("allowed"), index),
             dna_overrides=dict(raw.get("dna_overrides", {})),
+            section_type=_optional_text(raw.get("type")),
+            chord_bars=_optional_chord_bars(raw.get("chord_bars", raw.get("chords", [])), index),
+            repeat_of=_optional_text(raw.get("repeat_of")),
         )
         if section.bars <= 0:
             raise ValueError(f"section {index} bars must be positive")
@@ -79,6 +85,32 @@ def _optional_voices(value: Any, index: int) -> tuple[str, ...] | None:
     if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
         raise ValueError(f"section {index} allowed must be a list of non-empty voice names")
     return tuple(dict.fromkeys(item.strip() for item in value))
+
+
+def _optional_chord_bars(value: Any, index: int) -> tuple[tuple[str, ...], ...]:
+    if value in (None, []):
+        return ()
+    if not isinstance(value, list):
+        raise ValueError(f"section {index} chords must be a list")
+    if all(isinstance(item, str) for item in value):
+        return tuple((item.strip(),) for item in value if item.strip())
+    result: list[tuple[str, ...]] = []
+    for bar_index, bar_chords in enumerate(value, start=1):
+        if isinstance(bar_chords, str):
+            bar_chords = [bar_chords]
+        if not isinstance(bar_chords, list) or not bar_chords:
+            raise ValueError(f"section {index} chord bar {bar_index} must be a non-empty list")
+        if not all(isinstance(chord, str) and chord.strip() for chord in bar_chords):
+            raise ValueError(f"section {index} chord bar {bar_index} contains an invalid chord")
+        result.append(tuple(chord.strip() for chord in bar_chords))
+    return tuple(result)
+
+
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _optional_float(value: Any, field_name: str, index: int) -> float | None:

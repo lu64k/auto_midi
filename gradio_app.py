@@ -13,6 +13,7 @@ from auto_midi.midi_exporter import write_midi
 from auto_midi.pattern_generator import generate_events
 from auto_midi.sample_kit import inspect_kit
 from auto_midi.section_config import load_section_config
+from auto_midi.song_structure import apply_song_structure, parse_song_structure, section_configs_from_song_structure
 from auto_midi.settings import settings
 from auto_midi.time_signature import SUPPORTED_TIME_SIGNATURES, parse_time_signature
 from auto_midi.text_parser import parse_text
@@ -44,6 +45,7 @@ def _groove_dropdown_update(style: str):
 
 def render_song(
     lyrics: str | None,
+    song_structure_json: str | None,
     section_json: str | None,
     bpm: int | float | None,
     complexity: int | float | None,
@@ -61,13 +63,38 @@ def render_song(
             lyrics = DEFAULT_TEST_LYRICS
         else:
             raise gr.Error("请先输入歌词；当前程序按非空行生成小节，空行用于分段。")
+    text_map = parse_text(lyrics)
+    if not text_map.bars:
+        raise gr.Error("no lyric bars were parsed")
+    structure = None
+    if (song_structure_json or "").strip():
+        try:
+            structure = parse_song_structure(json.loads(song_structure_json))
+            text_map = apply_song_structure(text_map, structure)
+            section_json = json.dumps(
+                {
+                    "sections": [
+                        {
+                            "name": section.id,
+                            "type": section.type,
+                            "bars": section.bars,
+                            "chord_bars": [list(bar) for bar in section.chord_bars],
+                            "repeat_of": section.repeat_of,
+                        }
+                        for section in structure.sections
+                    ]
+                },
+                ensure_ascii=False,
+            )
+        except (TypeError, json.JSONDecodeError, ValueError) as exc:
+            raise gr.Error(f"歌曲结构 JSON 无效：{exc}") from exc
     section_json = section_json or DEFAULT_SECTION_CONFIG
     try:
         json.loads(section_json)
     except (TypeError, json.JSONDecodeError) as exc:
         raise gr.Error(f"段落 JSON 无法解析：{exc}") from exc
 
-    text_map = parse_text(lyrics)
+    # text_map was parsed before applying the user-authored structure.
     if not text_map.bars:
         raise gr.Error("没有解析到有效歌词小节。")
 
@@ -90,7 +117,7 @@ def render_song(
     try:
         requested_seed = int(seed) if seed is not None else -1
         seed_value = random.randrange(1_000_000_000) if requested_seed == -1 else requested_seed
-        bpm_value = int(bpm)
+        bpm_value = int(structure.bpm if structure else bpm)
         complexity_value = int(complexity)
         intensity_value = int(intensity)
         fill_value = int(fill)
@@ -105,7 +132,7 @@ def render_song(
     preset_value = preset if preset in PRESET_BOUNDS else settings.preset
     groove_value = groove if groove in grooves_for_style(preset_value) else default_groove(preset_value)
     try:
-        signature = parse_time_signature(time_signature)
+        signature = parse_time_signature(structure.time_signature if structure else time_signature)
     except ValueError as exc:
         raise gr.Error(str(exc)) from exc
 
@@ -164,6 +191,9 @@ def render_song(
         "seed": seed_value,
         "midi": str(midi_path),
     }
+    if structure:
+        summary["song_structure"] = structure.title
+        summary["key"] = structure.key
     if not kit_status.ready:
         summary["warning"] = f"测试模式跳过 WAV：样本包缺少 {', '.join(kit_status.missing)}"
     return (str(wav_path) if kit_status.ready else None), str(midi_path), summary
@@ -179,6 +209,12 @@ def build_demo() -> gr.Blocks:
                     lines=18,
                     value=DEFAULT_TEST_LYRICS if settings.test_mode else None,
                     placeholder="每个非空行对应一个小节；空行用于段落分隔。",
+                )
+                song_structure_json = gr.Code(
+                    label="歌曲结构与段落和弦（可选）",
+                    language="json",
+                    value="",
+                    lines=18,
                 )
                 section_json = gr.Code(
                     label="最终段落执行配置 JSON",
@@ -214,7 +250,7 @@ def build_demo() -> gr.Blocks:
         summary = gr.JSON(label="生成摘要")
         generate.click(
             fn=render_song,
-            inputs=[lyrics, section_json, bpm, complexity, intensity, fill, randomness, preset, groove, time_signature, seed, sample_kit],
+            inputs=[lyrics, song_structure_json, section_json, bpm, complexity, intensity, fill, randomness, preset, groove, time_signature, seed, sample_kit],
             outputs=[audio, midi, summary],
         )
         preset.change(fn=_groove_dropdown_update, inputs=preset, outputs=groove)

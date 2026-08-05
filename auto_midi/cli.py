@@ -11,6 +11,7 @@ from .midi_exporter import write_midi
 from .pattern_generator import generate_events
 from .section_config import load_section_config
 from .sample_kit import inspect_kit
+from .song_structure import apply_song_structure, load_song_structure, section_configs_from_song_structure
 from .settings import settings
 from .time_signature import SUPPORTED_TIME_SIGNATURES, parse_time_signature
 from .text_parser import parse_text
@@ -39,11 +40,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     config = config_from_args(args)
-    try:
-        signature = parse_time_signature(config.time_signature)
-    except ValueError as exc:
-        parser.error(str(exc))
-
     input_path = Path(config.input_text_path)
     raw = input_path.read_text(encoding="utf-8")
     text_map = parse_text(raw)
@@ -51,6 +47,19 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("input text does not contain any non-empty lines")
     if config.print_text_map:
         print_text_map(text_map)
+
+    structure = load_song_structure(Path(args.song_structure)) if args.song_structure else None
+    if structure:
+        try:
+            text_map = apply_song_structure(text_map, structure)
+        except ValueError as exc:
+            parser.error(str(exc))
+    effective_bpm = structure.bpm if structure else config.bpm
+    effective_time_signature = structure.time_signature if structure else config.time_signature
+    try:
+        signature = parse_time_signature(effective_time_signature)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     seed = random.randrange(1_000_000_000) if config.seed is None or config.seed == -1 else config.seed
     rng = random.Random(seed)
@@ -64,7 +73,13 @@ def main(argv: list[str] | None = None) -> int:
         preset=config.preset,
         groove=config.groove,
     )
-    section_configs = load_section_config(Path(args.section_config)) if args.section_config else None
+    if structure:
+        try:
+            section_configs = section_configs_from_song_structure(structure, text_map)
+        except ValueError as exc:
+            parser.error(str(exc))
+    else:
+        section_configs = load_section_config(Path(args.section_config)) if args.section_config else None
     if section_configs and len(section_configs) != text_map.section_count:
         parser.error(
             f"section config contains {len(section_configs)} sections, "
@@ -81,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     output_path = Path(config.output_midi_path) if config.output_midi_path else settings.output_dir / f"{input_path.stem}_drums.mid"
-    write_midi(events, output_path, bpm=config.bpm, time_signature=signature)
+    write_midi(events, output_path, bpm=effective_bpm, time_signature=signature)
 
     print(f"Wrote {output_path}")
     if config.preview_wav_path is not None:
@@ -91,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
             events=events,
             kit_status=kit_status,
             output_path=preview_path,
-            bpm=config.bpm,
+            bpm=effective_bpm,
             bar_count=len(text_map.bars),
             time_signature=signature,
         )
@@ -99,6 +114,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Seed: {seed}")
     print(f"Bars: {len(text_map.bars)}")
     print(f"Preset constraint: {config.preset}")
+    if structure:
+        print(f"Song structure: {structure.title} ({len(structure.sections)} sections)")
     print(
         "DrummerDNA: "
         f"style={dna.style}, "
@@ -157,6 +174,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--groove", default=settings.groove, help="Named style groove template.")
     parser.add_argument("--time-signature", choices=list(SUPPORTED_TIME_SIGNATURES), default=settings.time_signature)
     parser.add_argument("--section-config", help="JSON file with explicit per-section drum controls.")
+    parser.add_argument(
+        "--song-structure",
+        help="User-authored JSON with section types, bar counts, and section-level chords. "
+        "Its BPM and time signature override the matching CLI defaults.",
+    )
     parser.add_argument("--print-text-map", action="store_true", help="Print NLP token, phrase, and rhyme analysis.")
     parser.add_argument(
         "--preview-wav",

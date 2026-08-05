@@ -1,0 +1,33 @@
+{
+  "title": "demo",
+  "bpm": 120,
+  "time_signature": "4/4",
+  "key": "E major",
+  "sections": [
+    {
+      "id": "intro",
+      "type": "intro",
+      "bars": 1,
+      "chords": []
+    },
+    {
+      "id": "verse_1",
+      "type": "verse",
+      "index": 1,
+      "bars": 2,
+      "chords": [
+        ["E"],
+        ["B"]
+      ]
+    },
+    {
+      "id": "chorus_1",
+      "type": "chorus",
+      "index": 1,
+      "bars": 1,
+      "chords": [
+        ["A"]
+      ]
+    }
+  ]
+}

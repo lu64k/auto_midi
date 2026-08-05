@@ -113,6 +113,25 @@ Inspect the NLP rhythm map:
 .venv/bin/python -m auto_midi examples/poem.txt --print-text-map --seed 42
 ```
 
+### User-authored song structure
+
+For explicit sections and chord context, pass a structure JSON:
+
+```bash
+.venv/bin/python -m auto_midi examples/poem.txt \
+  --song-structure examples/song_structure.json \
+  --preset rock --groove classic_rock --seed 42
+```
+
+The structure JSON owns the song-level BPM and time signature when supplied.
+Chords belong to each section, and each nested chord list maps to one bar;
+`"chords": []` means that section has no chord context. The generator does
+not invent or carry chords into an unannotated section. `repeat_of` can be used
+to explicitly reuse another section's chords.
+
+The Gradio app exposes the same structure JSON as an optional input. When it is
+empty, the existing manual drum execution config remains available.
+
 Available style constraints:
 
 ```text
