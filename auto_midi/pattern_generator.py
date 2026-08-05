@@ -80,6 +80,7 @@ def generate_events(
             bar_events.append(DrumEvent(bar.index, 0, "crash", _vel(base_velocity + 18, rng)))
 
         bar_events = _filter_allowed_voices(bar_events, section)
+        bar_events = _ensure_required_voices(bar_events, bar.index, section, base_velocity)
         bar_events = _apply_dynamic_shape(bar_events, bar_dna)
         events.extend(bar_events)
         previous_bar_events = bar_events
@@ -201,6 +202,21 @@ def _filter_allowed_voices(events: list[DrumEvent], section: SectionConfig | Non
         return events
     allowed = set(section.allowed_voices)
     return [event for event in events if event.voice in allowed]
+
+
+def _ensure_required_voices(
+    events: list[DrumEvent],
+    bar_index: int,
+    section: SectionConfig | None,
+    base_velocity: int,
+) -> list[DrumEvent]:
+    if section is None or not section.required_voices:
+        return events
+    present = {event.voice for event in events}
+    for voice in section.required_voices:
+        if voice not in present:
+            events.append(DrumEvent(bar_index, 0, voice, max(1, min(127, base_velocity + 8))))
+    return events
 
 
 def _interpolate(start: float, end: float, position: float) -> float:

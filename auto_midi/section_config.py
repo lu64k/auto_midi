@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .drum_rack import GENERAL_MIDI_DRUMS
+
 
 FILL_MODES = ("none", "every_4", "last_bar", "last_2_bars", "section_end")
 
@@ -24,6 +26,7 @@ class SectionConfig:
     fill: int | None = None
     fill_mode: str = "section_end"
     allowed_voices: tuple[str, ...] | None = None
+    required_voices: tuple[str, ...] = ()
     dna_overrides: dict[str, Any] = field(default_factory=dict)
     section_type: str | None = None
     chord_bars: tuple[tuple[str, ...], ...] = ()
@@ -50,6 +53,7 @@ def load_section_config(path: Path) -> tuple[SectionConfig, ...]:
             fill=_optional_int(raw.get("fill"), "fill", index),
             fill_mode=str(raw.get("fill_mode", "section_end")),
             allowed_voices=_optional_voices(raw.get("allowed"), index),
+            required_voices=_optional_voices(raw.get("required"), index) or (),
             dna_overrides=dict(raw.get("dna_overrides", {})),
             section_type=_optional_text(raw.get("type")),
             chord_bars=_optional_chord_bars(raw.get("chord_bars", raw.get("chords", [])), index),
@@ -64,6 +68,8 @@ def load_section_config(path: Path) -> tuple[SectionConfig, ...]:
         _check_range(section.fill, 0, 100, "fill", index)
         if section.fill_mode not in FILL_MODES:
             raise ValueError(f"section {index} fill_mode must be one of {FILL_MODES}")
+        if section.allowed_voices and not set(section.required_voices).issubset(section.allowed_voices):
+            raise ValueError(f"section {index} required voices must be included in allowed voices")
         sections.append(section)
     return tuple(sections)
 
@@ -84,7 +90,11 @@ def _optional_voices(value: Any, index: int) -> tuple[str, ...] | None:
         return None
     if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
         raise ValueError(f"section {index} allowed must be a list of non-empty voice names")
-    return tuple(dict.fromkeys(item.strip() for item in value))
+    voices = tuple(dict.fromkeys(item.strip() for item in value))
+    unknown = sorted(set(voices) - set(GENERAL_MIDI_DRUMS))
+    if unknown:
+        raise ValueError(f"section {index} contains unknown drum voices: {', '.join(unknown)}")
+    return voices
 
 
 def _optional_chord_bars(value: Any, index: int) -> tuple[tuple[str, ...], ...]:
