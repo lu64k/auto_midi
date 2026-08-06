@@ -232,7 +232,14 @@ def generate_execution_form(
             if not hasattr(execution_agent, "generate_from_plan_payload"):
                 raise gr.Error("Execution Agent is not configured")
             try:
-                configs = execution_agent.generate_from_plan_payload(raw_plan, raw_seed)
+                preset_value = preset if preset in PRESET_BOUNDS else settings.preset
+                groove_value = groove if groove in grooves_for_style(preset_value) else default_groove(preset_value)
+                configs = execution_agent.generate_from_plan_payload(
+                    raw_plan,
+                    raw_seed,
+                    preset=preset_value,
+                    groove=groove_value,
+                )
             except (LLMError, ValueError) as exc:
                 raise gr.Error(f"Execution Agent failed: {exc}") from exc
             return json.dumps(execution_config_payload(configs), ensure_ascii=False, indent=2)

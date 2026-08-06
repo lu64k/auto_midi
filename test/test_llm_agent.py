@@ -38,9 +38,11 @@ class FakeClient:
 class ExecutionFakeClient:
     def __init__(self):
         self.system_prompt = ""
+        self.user_prompt = ""
 
     def complete_json(self, system_prompt: str, user_prompt: str, seed: int):
         self.system_prompt = system_prompt
+        self.user_prompt = user_prompt
         return {
             "sections": [
                 {
@@ -159,6 +161,19 @@ class LLMTests(unittest.TestCase):
         self.assertEqual(config.cymbal_role, "closed_hat_quarters")
         self.assertIn("whole section", client.system_prompt)
         self.assertIn("voice_placements", client.system_prompt)
+
+    def test_execution_plan_receives_selected_style_groove_boundary(self) -> None:
+        client = ExecutionFakeClient()
+        LLMDrumExecutionAgent(client).generate_from_plan_payload(
+            {"structure": {"sections": []}, "feels": []},
+            seed=7,
+            preset="rock",
+            groove="classic_rock",
+        )
+        self.assertIn('"selected_style": "rock"', client.user_prompt)
+        self.assertIn('"selected_global_groove": "classic_rock"', client.user_prompt)
+        self.assertIn('"sparse_rock"', client.user_prompt)
+        self.assertNotIn('"free"', client.user_prompt)
 
     def test_song_plan_repeats_short_chord_progression(self) -> None:
         client = SongPlanFakeClient()

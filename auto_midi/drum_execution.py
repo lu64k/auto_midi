@@ -6,7 +6,7 @@ from dataclasses import replace
 import json
 
 from .drum_feel import DrumFeel
-from .groove import GROOVE_PROFILES
+from .groove import GROOVE_PROFILES, grooves_for_style
 from .section_config import SectionConfig, parse_section_config
 from .song_structure import SongStructure, resolved_chord_bars
 
@@ -96,10 +96,22 @@ class LLMDrumExecutionAgent:
     def __init__(self, client):
         self.client = client
 
-    def generate_from_plan_payload(self, plan_payload: dict, seed: int) -> tuple[SectionConfig, ...]:
+    def generate_from_plan_payload(
+        self,
+        plan_payload: dict,
+        seed: int,
+        preset: str | None = None,
+        groove: str | None = None,
+    ) -> tuple[SectionConfig, ...]:
         """Compile the first Agent payload without pre-parsing its feel fields."""
 
-        payload = self.client.complete_json(_SYSTEM_PROMPT, json.dumps(plan_payload, ensure_ascii=False), seed)
+        context = {
+            "selected_style": preset,
+            "selected_global_groove": groove,
+            "allowed_section_grooves": list(grooves_for_style(preset)) if preset else [],
+            "plan": plan_payload,
+        }
+        payload = self.client.complete_json(_SYSTEM_PROMPT, json.dumps(context, ensure_ascii=False), seed)
         return parse_section_config(payload)
 
     def generate(self, structure: SongStructure, feels: tuple[DrumFeel, ...], seed: int) -> tuple[SectionConfig, ...]:
@@ -181,6 +193,10 @@ psych_shuffle, psych_groove, motorik_rock, swing_ride, jazz_waltz,
 blues_shuffle, slow_blues, rnb_soul, rnb_modern, country_train,
 two_beat_country, classic_funk, syncopated_funk, one_drop, rockers,
 ska_offbeat. Choose a section-specific groove from the semantic brief.
+When allowed_section_grooves is non-empty, every section groove must come from
+that list. selected_global_groove is the default when the brief does not call
+for a different groove inside the selected style. Never cross into another
+style's groove merely because a section is sparse or quiet.
 
 cymbal_role may be none, closed_hat_quarters, closed_hat_eighths,
 open_hat_quarters, ride_quarters, ride_eighths, or ride_bell_offbeats. Use this
