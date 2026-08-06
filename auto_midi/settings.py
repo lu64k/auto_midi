@@ -87,15 +87,30 @@ class Settings:
     gradio_share: bool = _env_bool("GRADIO_SHARE", False)
     test_mode: bool = _env_bool("AUTO_MIDI_TEST_MODE", True)
     llm_enabled: bool = _env_bool("AUTO_MIDI_LLM_ENABLED", True)
+    # When True, ignore AUTO_MIDI_LLM_BASE_URL and use the official DeepSeek
+    # endpoint with the key from the system-environment variable DEEPSEEK_API_KEY.
+    deepseek_official: bool = _env_bool("Deepseek_official", False)
     llm_base_url: str = os.getenv("AUTO_MIDI_LLM_BASE_URL", "http://gpus.pixo.local:10086/v1")
     llm_model: str = os.getenv("AUTO_MIDI_LLM_MODEL", "deepseek-v4-flash")
     llm_api_key_env: str = os.getenv("AUTO_MIDI_LLM_API_KEY_ENV", "10086")
     llm_timeout: int = _env_int("AUTO_MIDI_LLM_TIMEOUT", 120)
 
+    # Official DeepSeek endpoint used when deepseek_official is enabled.
+    DEEPSEEK_OFFICIAL_BASE_URL = "https://api.deepseek.com/v1"
+    DEEPSEEK_API_KEY_ENV = "DEEPSEEK_API_KEY"
+
     def llm_api_key(self) -> str:
         """Read the key on demand so it is never stored in Settings repr/files."""
 
-        return _system_environment_value(self.llm_api_key_env).strip()
+        env_name = self.DEEPSEEK_API_KEY_ENV if self.deepseek_official else self.llm_api_key_env
+        return _system_environment_value(env_name).strip()
+
+    def effective_llm_base_url(self) -> str:
+        """Official endpoint when deepseek_official is on, otherwise the configured gateway."""
+
+        if self.deepseek_official:
+            return self.DEEPSEEK_OFFICIAL_BASE_URL
+        return self.llm_base_url
 
 
 settings = Settings()

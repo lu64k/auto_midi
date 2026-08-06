@@ -323,7 +323,7 @@ def build_drum_feel_agent():
     if settings.llm_enabled and api_key:
         return LLMDrumFeelAgent(
             OpenAICompatibleClient(
-                base_url=settings.llm_base_url,
+                base_url=settings.effective_llm_base_url(),
                 api_key=api_key,
                 model=settings.llm_model,
                 timeout=settings.llm_timeout,
