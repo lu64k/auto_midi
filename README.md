@@ -141,39 +141,115 @@ Chords belong to each section, and each nested chord list maps to one bar;
 not invent or carry chords into an unannotated section. `repeat_of` can be used
 to explicitly reuse another section's chords.
 
-The Gradio app exposes the same structure JSON as an optional input. When it is
-empty, the existing manual drum execution config remains available.
+## Gradio 工作流
 
-In Gradio, the recommended flow is:
+### 启动
 
-```text
-natural-language requirements + lyrics
-  -> Read requirements: structure JSON + Drum Feel JSON
-  -> Generate execution form: executable section JSON
-  -> Generate drums: MIDI/WAV
+Windows PowerShell：
+
+```powershell
+& .\.venv\Scripts\python.exe .\gradio_app.py
 ```
 
-Both intermediate JSON blocks are editable before the next button is pressed.
+默认地址为 `http://127.0.0.1:8006`。端口由 `.env` 中的
+`GRADIO_SERVER_PORT` 控制；如果 8006 已被占用，请结束旧进程或临时改用
+其他端口。
 
-The second Agent routes two separate levels: one song-level `style`, then a
-`groove` skeleton for the sections. `free` is available at both levels. The
-router starts with one global groove and only creates a section override for a
-real rhythmic-identity change such as half-time, shuffle, or one-drop; ordinary
-energy, fill, cymbal, and density changes keep the same groove.
+### 页面流程
 
-`使用执行配置中的风格与节奏型` controls which source wins during rendering:
+页面只有一份“歌词 / 自然语言需求”输入。歌词、段落名称、小节数、段落和弦、
+编曲方向以及鼓点要求都写在这里，不需要预先整理 JSON。例如：
 
-- checked: use the routed style and grooves stored in the editable execution
-  JSON;
-- unchecked: use the current UI style/groove controls. A fixed UI groove is
-  applied to all sections, while `free` accepts the Agent's resolved route.
+```text
+作品偏经典摇滚，120 BPM，4/4。
+Intro 4 小节，只要 crash 和少量军鼓。
+Verse 1 16 小节，和弦 C/G-E-A-Fm，鼓点克制。
+Chorus 8 小节，保持同一基础节奏型，但增加力度和开镲。
 
-The live style catalog is `auto_midi/catalog/drum_styles.json`. It is the
-single source for the UI choices, routing Skill context, DNA bounds, groove
-profiles, and explicit step patterns. The process checks it for changes every
-five seconds and swaps in a valid update atomically, so adding a style or
-groove there does not require restarting Gradio. Invalid edits leave the last
-valid catalog active and produce a warning.
+[Verse 1]
+歌词……
+```
+
+推荐按以下三步操作：
+
+```text
+歌词与自然语言需求
+        │
+        ▼
+1. 生成 Feel 计划（第一 Agent）
+        │  分析全曲段落、每段小节/和弦、鼓点感觉及前后关系
+        ▼
+可编辑的 Feel JSON
+        │
+        ▼
+2. 生成执行配置（第二 Agent + groove 路由 Skill）
+        │  选择风格与节奏型，并转换为程序可执行参数
+        ▼
+可编辑的执行配置 JSON
+        │
+        ▼
+3. 生成鼓点
+        └─ MIDI + WAV 预览 + 处理摘要
+```
+
+#### 1. 生成 Feel 计划
+
+第一 Agent 读取完整输入，一次性给出所有段落的 Feel 计划。它的重点是描述每段
+鼓点的角色、起伏、密度、动态以及与上一段/下一段的关系，而不是过早决定所有
+程序数值。段落和弦只属于对应段落；未提供和弦时可以留空。
+
+输出显示在“Feel 计划”页签，可以人工修改。这个 JSON 的主要接收者是第二
+Agent，因此允许保留有表达力的自然语言描述。
+
+#### 2. 生成执行配置
+
+第二 Agent 把 Feel 计划转换为程序能够直接读取的段落配置，包括强度、密度、
+Fill、鼓件限制、鼓件位置、动态曲线以及 groove。它同时调用项目内的路由 Skill，
+处理两层选择：
+
+- `style`：全曲鼓手/DNA 的大风格，例如 `rock`、`dream_pop`；
+- `groove`：该风格内的具体节奏骨架，例如 `classic_rock`、`sparse_dream`。
+
+风格或节奏型选择 `free` 时由 Agent 判断。路由默认先为全曲选择一个 groove，
+不会为了制造变化而给每个段落随意换节奏型。普通的主歌/副歌能量差异通过力度、
+密度、Fill 和镲片变化表达；只有明确的 half-time、shuffle、one-drop 等骨架变化
+才允许切换 section groove。
+
+输出显示在“执行配置”页签，也可以手工编辑。`allowed=[]` 或空值表示该段允许
+使用全部鼓件；`required` 只表示该鼓件在整段内必须至少出现一次。
+
+#### 3. 生成鼓点
+
+第三步读取“执行配置”中的合法 JSON，生成 MIDI 和 WAV。只要这个框里已有合法
+执行配置，就可以直接生成，不要求本次页面会话必须先执行第一、第二按钮。因此，
+历史配置或手工编写的配置也能直接运行。
+
+“风格预设”页签中的“使用执行配置中的风格与节奏型”决定最终控制权：
+
+- 勾选：以执行配置 JSON 中的 `routing.style`、`routing.global_groove` 和各段
+  `groove` 为准；
+- 不勾选：以当前 UI 的风格和节奏型为准；固定 groove 会覆盖所有段落；
+- UI groove 为 `free`：接受执行配置中已经解析出的 Agent 路由结果。
+
+拍号、BPM、Seed、整体复杂度、强度、Fill、随机性和样本包目录也在这个页签设置。
+`Seed=-1` 表示每次随机生成实际 Seed；固定整数可复现同一 take。
+
+### 历史记录
+
+顶部“作品标题”和“历史作品”用于保存工作状态：
+
+- 输入一个新标题会创建记录；
+- 输入与历史记录相同的标题会读取该记录，后续修改原位覆盖；
+- 标题留空时以当天日期自动命名，重名时追加序号；
+- 保存内容包括原始歌词/需求、Feel JSON 和执行配置 JSON；
+- 编辑内容、运行 Agent 或生成鼓点时会自动保存。
+
+### 风格目录热更新
+
+`auto_midi/catalog/drum_styles.json` 是 UI 选项、路由 Skill、DNA 边界、groove
+profile 和显式 step pattern 的统一数据源。Gradio 每五秒检查一次文件：增加或
+调整风格/groove 后无须重启服务；如果新文件校验失败，程序继续使用上一份有效
+目录并输出警告。
 
 ### Internal LLM gateway
 
@@ -187,8 +263,9 @@ AUTO_MIDI_LLM_API_KEY_ENV=10086
 ```
 
 The key is read at runtime and is never written to `.env`, output files, or
-logs. If the gateway is unavailable or returns invalid JSON, generation falls
-back to the deterministic local Feel Agent.
+logs. If the gateway is unavailable or returns invalid JSON, the corresponding
+Agent button reports the gateway/validation error; it does not silently replace
+the requested LLM result with an unrelated local plan.
 
 Available style constraints:
 
