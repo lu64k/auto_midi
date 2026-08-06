@@ -12,6 +12,25 @@ from .drum_rack import GENERAL_MIDI_DRUMS
 
 FILL_MODES = ("none", "every_4", "last_bar", "last_2_bars", "section_end")
 
+VOICE_ALIASES = {
+    "bass_drum": "kick",
+    "kick_drum": "kick",
+    "side_stick": "rim",
+    "rimshot": "rim",
+    "tom": "mid_tom",
+    "tom_tom": "mid_tom",
+    "floor_tom": "low_tom",
+    "hi_hat": "closed_hat",
+    "hihat": "closed_hat",
+    "hat": "closed_hat",
+    "closed_hi_hat": "closed_hat",
+    "closed_hihat": "closed_hat",
+    "open_hi_hat": "open_hat",
+    "open_hihat": "open_hat",
+    "crash_cymbal": "crash",
+    "ride_cymbal": "ride",
+}
+
 
 @dataclass(frozen=True)
 class SectionConfig:
@@ -35,6 +54,12 @@ class SectionConfig:
 
 def load_section_config(path: Path) -> tuple[SectionConfig, ...]:
     payload = json.loads(path.read_text(encoding="utf-8"))
+    return parse_section_config(payload)
+
+
+def parse_section_config(payload: Any) -> tuple[SectionConfig, ...]:
+    """Parse a JSON-compatible execution config object."""
+
     raw_sections = payload.get("sections") if isinstance(payload, dict) else payload
     if not isinstance(raw_sections, list) or not raw_sections:
         raise ValueError("section config must contain a non-empty 'sections' list")
@@ -90,7 +115,11 @@ def _optional_voices(value: Any, index: int) -> tuple[str, ...] | None:
         return None
     if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
         raise ValueError(f"section {index} allowed must be a list of non-empty voice names")
-    voices = tuple(dict.fromkeys(item.strip() for item in value))
+    normalized = []
+    for item in value:
+        voice = item.strip().lower().replace("-", "_").replace(" ", "_")
+        normalized.append(VOICE_ALIASES.get(voice, voice))
+    voices = tuple(dict.fromkeys(normalized))
     unknown = sorted(set(voices) - set(GENERAL_MIDI_DRUMS))
     if unknown:
         raise ValueError(f"section {index} contains unknown drum voices: {', '.join(unknown)}")

@@ -2,15 +2,24 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import random
 
 from .drummer_dna import PRESET_BOUNDS, generate_dna
+from .drum_execution import (
+    RuleBasedDrumExecutionAgent,
+    build_drum_execution_agent,
+    compile_execution_config,
+    execution_config_payload,
+)
+from .drum_feel import RuleBasedDrumFeelAgent, build_drum_feel_agent
 from .groove import default_groove, grooves_for_style
 from .midi_exporter import write_midi
 from .pattern_generator import generate_events
 from .section_config import load_section_config
 from .sample_kit import inspect_kit
+from .llm_client import LLMError
 from .song_structure import apply_song_structure, load_song_structure, section_configs_from_song_structure
 from .settings import settings
 from .time_signature import SUPPORTED_TIME_SIGNATURES, parse_time_signature
@@ -73,7 +82,27 @@ def main(argv: list[str] | None = None) -> int:
         preset=config.preset,
         groove=config.groove,
     )
-    if structure:
+    agent_source = "manual"
+    agent_feels = None
+    if structure and args.agent != "off":
+        agent = RuleBasedDrumFeelAgent() if args.agent == "rule" else build_drum_feel_agent()
+        try:
+            agent_feels = agent.generate(structure, config.preset, config.groove, seed)
+        except (LLMError, ValueError) as exc:
+            if args.agent == "rule":
+                parser.error(str(exc))
+            print(f"Warning: LLM Agent failed; using rule fallback ({exc})")
+            agent_feels = RuleBasedDrumFeelAgent().generate(structure, config.preset, config.groove, seed)
+        agent_source = agent_feels[0].source if agent_feels else "rule"
+        execution_agent = RuleBasedDrumExecutionAgent() if args.agent == "rule" else build_drum_execution_agent()
+        try:
+            section_configs = execution_agent.generate(structure, agent_feels, seed)
+        except (LLMError, ValueError) as exc:
+            if args.agent == "rule":
+                parser.error(str(exc))
+            print(f"Warning: execution LLM failed; using local compiler ({exc})")
+            section_configs = compile_execution_config(structure, agent_feels)
+    elif structure:
         try:
             section_configs = section_configs_from_song_structure(structure, text_map)
         except ValueError as exc:
@@ -114,8 +143,22 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Seed: {seed}")
     print(f"Bars: {len(text_map.bars)}")
     print(f"Preset constraint: {config.preset}")
+    print(f"Agent: {agent_source}")
     if structure:
         print(f"Song structure: {structure.title} ({len(structure.sections)} sections)")
+        if args.agent_output and agent_feels:
+            Path(args.agent_output).write_text(
+                json.dumps(
+                    {
+                        "feels": [feel.to_plan_dict() for feel in agent_feels],
+                        "execution": execution_config_payload(section_configs),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            print(f"Wrote agent output {args.agent_output}")
     print(
         "DrummerDNA: "
         f"style={dna.style}, "
@@ -178,6 +221,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--song-structure",
         help="User-authored JSON with section types, bar counts, and section-level chords. "
         "Its BPM and time signature override the matching CLI defaults.",
+    )
+    parser.add_argument(
+        "--agent",
+        choices=("auto", "rule", "off"),
+        default="auto",
+        help="Song-structure mode: use configured LLM with rule fallback, rule agent only, or disable agents.",
+    )
+    parser.add_argument(
+        "--agent-output",
+        help="Optional JSON path for Drum Feel and compiled execution config.",
     )
     parser.add_argument("--print-text-map", action="store_true", help="Print NLP token, phrase, and rhyme analysis.")
     parser.add_argument(

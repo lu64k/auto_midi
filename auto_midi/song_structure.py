@@ -108,31 +108,9 @@ def parse_song_structure(payload: Mapping[str, Any]) -> SongStructure:
 
 
 def validate_against_lyrics(structure: SongStructure, lyric_line_count: int) -> None:
-    """Ensure authored section bar counts cover the lyric bars exactly."""
+    """Compatibility no-op: lyric line count no longer controls song bars."""
 
-    if lyric_line_count <= 0:
-        raise ValueError("lyrics must contain at least one non-empty line")
-    if structure.total_bars != lyric_line_count:
-        raise ValueError(
-            f"song structure contains {structure.total_bars} bars, "
-            f"but lyrics contain {lyric_line_count} non-empty lines"
-        )
-
-    cursor = 1
-    for section in structure.sections:
-        expected_start = cursor
-        expected_end = cursor + section.bars - 1
-        if section.lyrics_start is not None and section.lyrics_start != expected_start:
-            raise ValueError(
-                f"section {section.id} lyrics_start must be {expected_start}, "
-                f"got {section.lyrics_start}"
-            )
-        if section.lyrics_end is not None and section.lyrics_end != expected_end:
-            raise ValueError(
-                f"section {section.id} lyrics_end must be {expected_end}, "
-                f"got {section.lyrics_end}"
-            )
-        cursor = expected_end + 1
+    return None
 
 
 def apply_song_structure(text_map, structure: SongStructure):
@@ -143,20 +121,26 @@ def apply_song_structure(text_map, structure: SongStructure):
     is preserved while only section indices and section-end markers change.
     """
 
-    validate_against_lyrics(structure, len(text_map.bars))
     from .text_parser import BarText, TextMap
+
+    if not text_map.bars:
+        raise ValueError("text input must contain at least one non-empty line")
 
     section_by_bar: list[int] = []
     for section_index, section in enumerate(structure.sections):
         section_by_bar.extend([section_index] * section.bars)
 
     bars = []
-    for index, bar in enumerate(text_map.bars):
+    target_bar_count = len(section_by_bar)
+    source_bar_count = len(text_map.bars)
+    for index in range(target_bar_count):
+        source_index = min(source_bar_count - 1, (index * source_bar_count) // target_bar_count)
+        bar = text_map.bars[source_index]
         section_index = section_by_bar[index]
-        ends_section = index == len(text_map.bars) - 1 or section_by_bar[index + 1] != section_index
+        ends_section = index == target_bar_count - 1 or section_by_bar[index + 1] != section_index
         bars.append(
             BarText(
-                index=bar.index,
+                index=index,
                 section=section_index,
                 text=bar.text,
                 tokens=bar.tokens,
@@ -177,8 +161,6 @@ def section_configs_from_song_structure(structure: SongStructure, text_map) -> t
     from the drum execution layer.  Chords are carried as context for the
     upcoming agents; the current drum generator simply ignores them.
     """
-
-    validate_against_lyrics(structure, len(text_map.bars))
 
     from .section_config import SectionConfig
 

@@ -10,10 +10,11 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import json
 import random
+import re
 from typing import Any, Protocol
 
 from .groove import GROOVE_PROFILES, default_groove, grooves_for_style
-from .song_structure import SongStructure, resolved_chord_bars
+from .song_structure import SongStructure, parse_song_structure, resolved_chord_bars
 
 
 @dataclass(frozen=True)
@@ -35,9 +36,42 @@ class DrumFeel:
     allowed_voices: tuple[str, ...] | None = None
     required_voices: tuple[str, ...] = ()
     source: str = "rule"
+    role_in_song: str = ""
+    relationship_to_previous: str = ""
+    relationship_to_next: str = ""
+    groove_character: str = ""
+    kick_feel: str = ""
+    snare_feel: str = ""
+    cymbal_feel: str = ""
+    dynamics_arc: str = ""
+    fill_and_transition: str = ""
+    chord_and_lyric_response: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+    def to_plan_dict(self) -> dict[str, Any]:
+        """Serialize only the semantic plan authored by the first Agent."""
+
+        return {
+            "section_id": self.section_id,
+            "section_type": self.section_type,
+            "groove": self.groove,
+            "description": self.description,
+            "role_in_song": self.role_in_song,
+            "relationship_to_previous": self.relationship_to_previous,
+            "relationship_to_next": self.relationship_to_next,
+            "groove_character": self.groove_character,
+            "kick_feel": self.kick_feel,
+            "snare_feel": self.snare_feel,
+            "cymbal_feel": self.cymbal_feel,
+            "dynamics_arc": self.dynamics_arc,
+            "fill_and_transition": self.fill_and_transition,
+            "chord_and_lyric_response": self.chord_and_lyric_response,
+            "chord_context": [list(bar) for bar in self.chord_context],
+            "allowed_voices": list(self.allowed_voices) if self.allowed_voices is not None else [],
+            "required_voices": list(self.required_voices),
+        }
 
 
 def parse_drum_feels(
@@ -62,25 +96,36 @@ def parse_drum_feels(
             raise ValueError(f"drum feel for {section.id} must be an object")
         if str(raw.get("section_id", "")).strip() != section.id:
             raise ValueError(f"drum feel section id must be {section.id!r}")
+        defaults = _section_defaults(section.type)
         feels.append(
             DrumFeel(
                 section_id=section.id,
                 section_type=str(raw.get("section_type", section.type)),
                 groove=str(raw.get("groove", "free")),
                 description=str(raw.get("description", "")).strip(),
-                energy=_feel_number(raw.get("energy"), section.id, "energy"),
-                density=_feel_number(raw.get("density"), section.id, "density"),
-                backbeat_strength=_feel_number(raw.get("backbeat_strength"), section.id, "backbeat_strength"),
-                syncopation=_feel_number(raw.get("syncopation"), section.id, "syncopation"),
-                swing=_feel_number(raw.get("swing"), section.id, "swing"),
-                variation=_feel_number(raw.get("variation"), section.id, "variation"),
-                fill_level=_feel_number(raw.get("fill_level"), section.id, "fill_level"),
+                energy=_feel_number(raw.get("energy", defaults["energy"]), section.id, "energy"),
+                density=_feel_number(raw.get("density", defaults["density"]), section.id, "density"),
+                backbeat_strength=_feel_number(raw.get("backbeat_strength", defaults["backbeat"]), section.id, "backbeat_strength"),
+                syncopation=_feel_number(raw.get("syncopation", defaults["syncopation"]), section.id, "syncopation"),
+                swing=_feel_number(raw.get("swing", defaults["swing"]), section.id, "swing"),
+                variation=_feel_number(raw.get("variation", defaults["variation"]), section.id, "variation"),
+                fill_level=_feel_number(raw.get("fill_level", defaults["fill"]), section.id, "fill_level"),
                 crash_usage=str(raw.get("crash_usage", "accent_only")),
-                dropout=_feel_number(raw.get("dropout"), section.id, "dropout"),
-                chord_context=tuple(tuple(str(chord) for chord in bar) for bar in raw.get("chord_context", [])),
+                dropout=_feel_number(raw.get("dropout", defaults["dropout"]), section.id, "dropout"),
+                chord_context=_parse_chord_context(raw.get("chord_context", [])),
                 allowed_voices=_optional_voice_tuple(raw.get("allowed_voices")),
                 required_voices=tuple(str(voice) for voice in raw.get("required_voices", [])),
                 source=source,
+                role_in_song=str(raw.get("role_in_song", "")).strip(),
+                relationship_to_previous=str(raw.get("relationship_to_previous", "")).strip(),
+                relationship_to_next=str(raw.get("relationship_to_next", "")).strip(),
+                groove_character=str(raw.get("groove_character", "")).strip(),
+                kick_feel=str(raw.get("kick_feel", "")).strip(),
+                snare_feel=str(raw.get("snare_feel", "")).strip(),
+                cymbal_feel=str(raw.get("cymbal_feel", "")).strip(),
+                dynamics_arc=str(raw.get("dynamics_arc", "")).strip(),
+                fill_and_transition=str(raw.get("fill_and_transition", "")).strip(),
+                chord_and_lyric_response=str(raw.get("chord_and_lyric_response", "")).strip(),
             )
         )
     return tuple(feels)
@@ -104,8 +149,32 @@ def _optional_voice_tuple(value: Any) -> tuple[str, ...] | None:
     return tuple(dict.fromkeys(item.strip() for item in value))
 
 
+def _parse_chord_context(value: Any) -> tuple[tuple[str, ...], ...]:
+    """Accept flat or per-bar chord arrays without splitting chord strings."""
+
+    if value in (None, []):
+        return ()
+    if not isinstance(value, (list, tuple)):
+        raise ValueError("drum feel chord_context must be a list")
+    result = []
+    for bar in value:
+        if isinstance(bar, str):
+            chord = bar.strip()
+            if not chord:
+                raise ValueError("drum feel chord_context contains an empty chord")
+            result.append((chord,))
+            continue
+        if not isinstance(bar, (list, tuple)) or not bar:
+            raise ValueError("drum feel chord_context bar must be a chord string or non-empty list")
+        chords = tuple(str(chord).strip() for chord in bar)
+        if any(not chord for chord in chords):
+            raise ValueError("drum feel chord_context contains an empty chord")
+        result.append(chords)
+    return tuple(result)
+
+
 class DrumFeelAgent(Protocol):
-    def generate(self, structure: SongStructure, preset: str, groove: str | None, seed: int) -> tuple[DrumFeel, ...]:
+    def generate(self, structure: SongStructure, preset: str, groove: str | None, seed: int, requirements: str | None = None) -> tuple[DrumFeel, ...]:
         """Generate one structured feel per authored song section."""
 
 
@@ -117,7 +186,7 @@ class RuleBasedDrumFeelAgent:
     section defaults and is repeatable for a fixed seed.
     """
 
-    def generate(self, structure: SongStructure, preset: str, groove: str | None, seed: int) -> tuple[DrumFeel, ...]:
+    def generate(self, structure: SongStructure, preset: str, groove: str | None, seed: int, requirements: str | None = None) -> tuple[DrumFeel, ...]:
         rng = random.Random(seed)
         result: list[DrumFeel] = []
         previous_energy = 0.0
@@ -164,8 +233,64 @@ class LLMDrumFeelAgent:
     def __init__(self, client):
         self.client = client
 
-    def generate(self, structure: SongStructure, preset: str, groove: str | None, seed: int) -> tuple[DrumFeel, ...]:
+    def generate_raw_plan(
+        self,
+        requirements: str,
+        bpm: int,
+        time_signature: str,
+        preset: str,
+        groove: str | None,
+        seed: int,
+    ) -> dict[str, Any]:
+        """Return the first Agent JSON exactly as produced by the model."""
+
+        return self.client.complete_json(
+            _REQUIREMENTS_SYSTEM_PROMPT,
+            json.dumps(
+                {
+                    "requirements": requirements,
+                    "bpm_default": bpm,
+                    "time_signature_default": time_signature,
+                    "preset": preset,
+                    "groove": groove,
+                },
+                ensure_ascii=False,
+            ),
+            seed,
+        )
+
+    def generate_from_requirements(
+        self,
+        requirements: str,
+        bpm: int,
+        time_signature: str,
+        preset: str,
+        groove: str | None,
+        seed: int,
+    ) -> tuple[SongStructure, tuple[DrumFeel, ...]]:
+        payload = self.generate_raw_plan(requirements, bpm, time_signature, preset, groove, seed)
+        structure = normalize_plan_structure(payload, requirements)
+        raw_feels = payload.get("feels", payload.get("sections"))
+        if not isinstance(raw_feels, list):
+            raise ValueError("feel plan must contain a feels list")
+        defaults = {
+            feel.section_id: feel.to_dict()
+            for feel in RuleBasedDrumFeelAgent().generate(structure, preset, groove, seed)
+        }
+        normalized_feels = []
+        for position, section in enumerate(structure.sections):
+            raw_feel = raw_feels[position] if position < len(raw_feels) and isinstance(raw_feels[position], dict) else {}
+            merged = dict(defaults[section.id])
+            merged.update({key: value for key, value in raw_feel.items() if value not in (None, "")})
+            merged["section_id"] = section.id
+            merged["section_type"] = section.type
+            normalized_feels.append(merged)
+        feels = parse_drum_feels(normalized_feels, structure, source="llm")
+        return structure, feels
+
+    def generate(self, structure: SongStructure, preset: str, groove: str | None, seed: int, requirements: str | None = None) -> tuple[DrumFeel, ...]:
         context = {
+            "natural_language_requirements": requirements or "",
             "title": structure.title,
             "bpm": structure.bpm,
             "time_signature": structure.time_signature,
@@ -217,6 +342,103 @@ names. The output root must be {\"sections\": [...]}. Each object must contain:
 section_id, section_type, groove, description, energy, density,
 backbeat_strength, syncopation, swing, variation, fill_level, crash_usage,
 dropout, chord_context, allowed_voices, required_voices.
+"""
+
+
+def normalize_plan_structure(payload: dict[str, Any], requirements: str) -> SongStructure:
+    """Build hidden program state without altering the first Agent payload."""
+
+    raw_structure = dict(payload.get("structure", payload))
+    raw_sections = raw_structure.get("sections", [])
+    authored_progressions = _extract_authored_chord_progressions(requirements)
+    cursor = 1
+    normalized_sections = []
+    for position, raw_section in enumerate(raw_sections, start=1):
+        section = dict(raw_section)
+        try:
+            bars = int(section.get("bars") or 1)
+        except (TypeError, ValueError):
+            bars = 1
+        start = section.get("lyrics_start")
+        end = section.get("lyrics_end")
+        if not isinstance(start, int) or start < 1:
+            start = cursor
+        if not isinstance(end, int) or end < start:
+            end = start + bars - 1
+        section["id"] = str(section.get("id") or f"section_{position}")
+        section["index"] = position
+        section["bars"] = bars
+        section["lyrics_start"] = start
+        section["lyrics_end"] = end
+        chords = section.get("chords", section.get("chord_bars", []))
+        if isinstance(chords, list) and chords:
+            chord_symbols = [str(item[0] if isinstance(item, list) and item else item).strip() for item in chords]
+            for progression in authored_progressions:
+                flattened = [part for chord in progression for part in chord.split("/")]
+                if chord_symbols[: len(progression)] == list(progression) or chord_symbols[: len(flattened)] == flattened:
+                    chords = list(progression)
+                    break
+            chords = [chords[index % len(chords)] for index in range(bars)]
+        else:
+            chords = []
+        section["chords"] = chords
+        normalized_sections.append(section)
+        cursor = end + 1
+    raw_structure["sections"] = normalized_sections
+    return parse_song_structure(raw_structure)
+
+
+_CHORD_TOKEN = r"[A-G](?:#|b)?(?:maj|min|m|dim|aug|sus|add)?\d*(?:/[A-G](?:#|b)?)?"
+_CHORD_PROGRESSION_RE = re.compile(rf"(?<![A-Za-z0-9#/])({_CHORD_TOKEN}(?:\s*-\s*{_CHORD_TOKEN})+)")
+
+
+def _extract_authored_chord_progressions(text: str) -> tuple[tuple[str, ...], ...]:
+    """Extract hyphen-separated progressions while preserving slash chords."""
+
+    progressions = []
+    for match in _CHORD_PROGRESSION_RE.finditer(text):
+        chords = tuple(part.strip() for part in re.split(r"\s*-\s*", match.group(1)))
+        if chords:
+            progressions.append(chords)
+    return tuple(progressions)
+
+
+_REQUIREMENTS_SYSTEM_PROMPT = """You are a song-level drum-feel planning agent. Return JSON only.
+Read the complete natural-language lyrics and production requirements. Infer
+every requested song section (intro, verse, pre_chorus, chorus, bridge,
+instrumental, outro, etc.) and its bar count. Use the lyrics, chord movement,
+section function, and emotional character to decide the drum contour of every
+section. Do not collapse the song into one verse.
+
+This stage is a musical direction brief, not an execution config. Do not output
+numeric values for energy, density, swing, syncopation, variation, fill level,
+probability, velocity, or any other implementation parameter. The next agent
+will translate your musical descriptions into executable numbers.
+
+Return exactly {"structure": {...}, "feels": [...]}. The structure must have
+title, bpm, time_signature, key, and sections. Each structure section needs id,
+type, index, bars, lyrics_start, lyrics_end, chords, repeat_of. Chords must be
+per-section and may be [] when the user did not provide them. Preserve chord
+symbols exactly as authored. A slash chord such as C/G is one atomic chord and
+must never be split into C and G. A hyphen between chord symbols separates the
+progression: C/G-E-A-Fm means exactly ["C/G", "E", "A", "Fm"].
+
+Create exactly one unique feel plan for every structure section, in the same
+order and with the same section_id. Never reuse identical descriptions across
+sections. Every feel plan must explain how the section enters from the previous
+section, develops internally, and hands off to the next section. It must contain:
+section_id, section_type, groove, description, role_in_song,
+relationship_to_previous, relationship_to_next, groove_character, kick_feel,
+snare_feel, cymbal_feel, dynamics_arc, fill_and_transition,
+chord_and_lyric_response, chord_context, allowed_voices, required_voices.
+
+description must be a concrete, section-specific summary rather than a generic
+genre label. relationship_to_previous and relationship_to_next must reference
+the actual neighboring section ids, or state that there is no neighbor at the
+song boundary. Describe musical gestures in natural language: pulse placement,
+space, accents, orchestration, buildup, release, dropouts, and transitions.
+allowed_voices=[] or null means all drum voices are allowed. required_voices
+contains only instruments that must occur. Return no Markdown fences.
 """
 
 

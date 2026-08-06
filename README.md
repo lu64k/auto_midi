@@ -123,6 +123,18 @@ For explicit sections and chord context, pass a structure JSON:
   --preset rock --groove classic_rock --seed 42
 ```
 
+Song-structure mode can compile the section feelings through the Agent layer:
+
+```bash
+.venv/bin/python -m auto_midi examples/poem.txt \
+  --song-structure examples/song_structure.json \
+  --agent auto --agent-output outputs/agent.json
+```
+
+Use `--agent rule` to stay fully local, or `--agent off` to use only the
+user-authored structure. `--agent auto` tries the configured LLM and falls back
+to the deterministic rule agent when the gateway is unavailable.
+
 The structure JSON owns the song-level BPM and time signature when supplied.
 Chords belong to each section, and each nested chord list maps to one bar;
 `"chords": []` means that section has no chord context. The generator does
@@ -131,6 +143,17 @@ to explicitly reuse another section's chords.
 
 The Gradio app exposes the same structure JSON as an optional input. When it is
 empty, the existing manual drum execution config remains available.
+
+In Gradio, the recommended flow is:
+
+```text
+natural-language requirements + lyrics
+  -> Read requirements: structure JSON + Drum Feel JSON
+  -> Generate execution form: executable section JSON
+  -> Generate drums: MIDI/WAV
+```
+
+Both intermediate JSON blocks are editable before the next button is pressed.
 
 ### Internal LLM gateway
 

@@ -90,7 +90,7 @@ class Settings:
     llm_base_url: str = os.getenv("AUTO_MIDI_LLM_BASE_URL", "http://gpus.pixo.local:10086/v1")
     llm_model: str = os.getenv("AUTO_MIDI_LLM_MODEL", "deepseek-v4-flash")
     llm_api_key_env: str = os.getenv("AUTO_MIDI_LLM_API_KEY_ENV", "10086")
-    llm_timeout: int = _env_int("AUTO_MIDI_LLM_TIMEOUT", 90)
+    llm_timeout: int = _env_int("AUTO_MIDI_LLM_TIMEOUT", 120)
 
     def llm_api_key(self) -> str:
         """Read the key on demand so it is never stored in Settings repr/files."""

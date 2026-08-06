@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import json
 from typing import Any
+
+try:
+    import requests
+except ImportError:  # Keep the bundled venv usable before dependency install.
+    requests = None
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -28,26 +33,44 @@ class OpenAICompatibleClient:
             ],
             "temperature": 0.25,
             "seed": seed,
-            "response_format": {"type": "json_object"},
         }
-        request = Request(
-            f"{self.base_url}/chat/completions",
-            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
         try:
-            with urlopen(request, timeout=self.timeout) as response:
-                raw_response = response.read().decode("utf-8")
+            url = f"{self.base_url}/chat/completions"
+            if requests is not None:
+                response = requests.post(
+                    url,
+                    json=payload,
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                raw_response = response.text
+            else:
+                request = Request(
+                    url,
+                    data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    method="POST",
+                )
+                with urlopen(request, timeout=self.timeout) as response:
+                    raw_response = response.read().decode("utf-8")
         except HTTPError as exc:
             raise LLMError(f"LLM gateway HTTP {exc.code}") from exc
         except URLError as exc:
             raise LLMError(f"LLM gateway unavailable: {exc.reason}") from exc
         except TimeoutError as exc:
             raise LLMError("LLM gateway timed out") from exc
+        except Exception as exc:
+            if requests is not None and isinstance(exc, requests.RequestException):
+                if isinstance(exc, requests.HTTPError) and exc.response is not None:
+                    raise LLMError(f"LLM gateway HTTP {exc.response.status_code}") from exc
+                if isinstance(exc, requests.Timeout):
+                    raise LLMError("LLM gateway timed out") from exc
+                raise LLMError(f"LLM gateway unavailable: {exc}") from exc
+            raise
 
         try:
             envelope = json.loads(raw_response)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
 from pathlib import Path
 import random
 import tempfile
@@ -9,15 +8,16 @@ import tempfile
 import gradio as gr
 
 from auto_midi.drummer_dna import PRESET_BOUNDS, generate_dna
-from auto_midi.drum_execution import compile_execution_config
-from auto_midi.drum_feel import RuleBasedDrumFeelAgent, build_drum_feel_agent, parse_drum_feels
+from auto_midi.drum_execution import build_drum_execution_agent, compile_execution_config, execution_config_payload
+from auto_midi.drum_feel import RuleBasedDrumFeelAgent, build_drum_feel_agent, normalize_plan_structure, parse_drum_feels
 from auto_midi.groove import default_groove, grooves_for_style
 from auto_midi.llm_client import LLMError
 from auto_midi.midi_exporter import write_midi
 from auto_midi.pattern_generator import generate_events
 from auto_midi.sample_kit import inspect_kit
-from auto_midi.section_config import load_section_config
-from auto_midi.song_structure import apply_song_structure, parse_song_structure, section_configs_from_song_structure
+from auto_midi.section_config import load_section_config, parse_section_config
+from auto_midi.song_requirements import build_requirements_agent, fallback_song_structure
+from auto_midi.song_structure import SECTION_TYPES, apply_song_structure, parse_song_structure, section_configs_from_song_structure
 from auto_midi.settings import settings
 from auto_midi.time_signature import SUPPORTED_TIME_SIGNATURES, parse_time_signature
 from auto_midi.text_parser import parse_text
@@ -70,6 +70,217 @@ def _execution_config_payload(configs):
     return {"sections": payload}
 
 
+def _structure_from_inputs(lyrics: str | None, structure_json: str | None):
+    if not (structure_json or "").strip():
+        raise gr.Error("请先填写歌曲结构 JSON")
+    try:
+        structure = parse_song_structure(json.loads(structure_json))
+        if (lyrics or "").strip():
+            text_map = parse_text(lyrics)
+            if not text_map.bars:
+                raise ValueError("没有解析到有效歌词小节")
+            apply_song_structure(text_map, structure)
+    except (TypeError, json.JSONDecodeError, ValueError) as exc:
+        raise gr.Error(f"歌曲结构 JSON 无效：{exc}") from exc
+    return structure
+
+
+def read_requirements(
+    lyrics: str | None,
+    bpm: int | float | None,
+    time_signature: str,
+):
+    """Read natural-language requirements and return structure + Feel JSON."""
+
+    print("[read_requirements] start", flush=True)
+    if not (lyrics or "").strip():
+        raise gr.Error("请先输入歌词")
+    if not (lyrics or "").strip() and not (structure_json or "").strip():
+        raise gr.Error("请先在歌词框填写歌词和编曲需求")
+    try:
+        bpm_value = int(bpm)
+        seed_value = 0
+    except (TypeError, ValueError) as exc:
+        raise gr.Error(f"BPM 或 Seed 无效：{exc}") from exc
+    if seed_value == -1:
+        seed_value = random.randrange(1_000_000_000)
+    warnings = []
+    # The user textbox is already the complete brief.  Build only a local
+    # section scaffold here, then make the single LLM call through Feel Agent.
+    requirements_agent = None
+    try:
+        print("[read_requirements] requirements agent request", flush=True)
+        if requirements_agent is None:
+            structure = fallback_song_structure(lyrics, lyrics, bpm_value, time_signature)
+            warnings.append("需求整理 Agent 未配置，使用本地回退")
+        else:
+            structure = requirements_agent.generate(
+                lyrics,
+                lyrics,
+                bpm_value,
+                time_signature,
+                seed_value,
+            )
+        print("[read_requirements] requirements agent returned", flush=True)
+    except (LLMError, ValueError) as exc:
+        print(f"[read_requirements] requirements agent failed: {exc}", flush=True)
+        structure = fallback_song_structure(lyrics, lyrics, bpm_value, time_signature)
+        warnings.append(f"需求整理 Agent 失败，已回退：{exc}")
+    # The local scaffold is not an Agent and must not be reported as one.
+    warnings = []
+    preset_value = settings.preset
+    groove_value = settings.groove or default_groove(preset_value)
+    # The first button has exactly one LLM call: requirements -> structure.
+    # Drum feel is kept local here and can be edited/overridden downstream.
+    feel_agent = build_drum_feel_agent()
+    raw_plan = None
+    try:
+        print("[read_requirements] feel agent request", flush=True)
+        if hasattr(feel_agent, "generate_raw_plan"):
+            raw_plan = feel_agent.generate_raw_plan(
+                lyrics,
+                bpm_value,
+                time_signature,
+                preset_value,
+                groove_value,
+                seed_value,
+            )
+            try:
+                structure = normalize_plan_structure(raw_plan, lyrics)
+            except ValueError as exc:
+                structure = fallback_song_structure(lyrics, lyrics, bpm_value, time_signature)
+                warnings.append(f"Hidden structure fallback: {exc}")
+            feels = ()
+        else:
+            feels = feel_agent.generate(
+                structure,
+                preset_value,
+                groove_value,
+                seed_value,
+                requirements=lyrics,
+            )
+        print("[read_requirements] feel agent returned", flush=True)
+    except (LLMError, ValueError) as exc:
+        print(f"[read_requirements] feel agent failed: {exc}", flush=True)
+        raise gr.Error(f"Feel Agent gateway unavailable: {exc}") from exc
+        feels = RuleBasedDrumFeelAgent().generate(structure, preset_value, groove_value, seed_value)
+        warnings.append(f"Feel Agent 失败，已回退：{exc}")
+    structure_payload = {
+        "title": structure.title,
+        "bpm": structure.bpm,
+        "time_signature": structure.time_signature,
+        "key": structure.key,
+        "sections": [
+            {
+                "id": section.id,
+                "type": section.type,
+                "index": section.index,
+                "bars": section.bars,
+                "lyrics_start": section.lyrics_start,
+                "lyrics_end": section.lyrics_end,
+                "chords": [list(bar) for bar in section.chord_bars],
+                "repeat_of": section.repeat_of,
+            }
+            for section in structure.sections
+        ],
+    }
+    result = (
+        json.dumps(structure_payload, ensure_ascii=False, indent=2),
+        json.dumps(
+            raw_plan if raw_plan is not None else {"structure": structure_payload, "feels": [feel.to_plan_dict() for feel in feels]},
+            ensure_ascii=False,
+            indent=2,
+        ),
+        {
+            "stage": "requirements_read",
+            "status": "ok",
+            "structure_sections": len(structure.sections),
+            "feel_source": "llm_raw" if raw_plan is not None else (feels[0].source if feels else "none"),
+            "warnings": warnings,
+        },
+    )
+    print("[read_requirements] completed", flush=True)
+    return result
+
+
+def generate_execution_form(
+    structure_json: str | None,
+    feel_json: str | None,
+    preset: str | None,
+    groove: str | None,
+    seed: int | float | None,
+):
+    """Run only the second Agent and return editable execution JSON."""
+
+    if (feel_json or "").strip():
+        try:
+            raw_plan = json.loads(feel_json)
+            raw_seed = int(seed) if seed is not None else -1
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise gr.Error(f"First Agent JSON or Seed is invalid: {exc}") from exc
+        if isinstance(raw_plan, dict) and ("feels" in raw_plan or "structure" in raw_plan):
+            if raw_seed == -1:
+                raw_seed = random.randrange(1_000_000_000)
+            execution_agent = build_drum_execution_agent()
+            if not hasattr(execution_agent, "generate_from_plan_payload"):
+                raise gr.Error("Execution Agent is not configured")
+            try:
+                configs = execution_agent.generate_from_plan_payload(raw_plan, raw_seed)
+            except (LLMError, ValueError) as exc:
+                raise gr.Error(f"Execution Agent failed: {exc}") from exc
+            return json.dumps(execution_config_payload(configs), ensure_ascii=False, indent=2)
+
+    structure = _structure_from_inputs(None, structure_json)
+    if not (feel_json or "").strip():
+        raise gr.Error("请先点击“读取需求”生成 Drum Feel")
+    try:
+        feels = parse_drum_feels(json.loads(feel_json), structure)
+        seed_value = int(seed) if seed is not None else -1
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise gr.Error(f"Drum Feel JSON 或 Seed 无效：{exc}") from exc
+    if seed_value == -1:
+        seed_value = random.randrange(1_000_000_000)
+    try:
+        execution_agent = build_drum_execution_agent()
+        configs = execution_agent.generate(structure, feels, seed_value)
+    except (LLMError, ValueError):
+        configs = compile_execution_config(structure, feels)
+    return json.dumps(execution_config_payload(configs), ensure_ascii=False, indent=2)
+
+
+def _structure_from_execution_config(configs, bpm: int, time_signature: str):
+    """Derive hidden generation structure from a standalone execution config."""
+
+    sections = []
+    cursor = 1
+    for index, config in enumerate(configs, start=1):
+        section_type = config.section_type if config.section_type in SECTION_TYPES else "instrumental"
+        chord_bars = [list(bar) for bar in config.chord_bars]
+        if chord_bars and len(chord_bars) != config.bars:
+            chord_bars = [chord_bars[position % len(chord_bars)] for position in range(config.bars)]
+        sections.append(
+            {
+                "id": config.name or f"section_{index}",
+                "type": section_type,
+                "index": index,
+                "bars": config.bars,
+                "lyrics_start": cursor,
+                "lyrics_end": cursor + config.bars - 1,
+                "chords": chord_bars,
+                "repeat_of": config.repeat_of,
+            }
+        )
+        cursor += config.bars
+    return parse_song_structure(
+        {
+            "title": "execution_config",
+            "bpm": bpm,
+            "time_signature": time_signature,
+            "sections": sections,
+        }
+    )
+
+
 def render_song(
     lyrics: str | None,
     song_structure_json: str | None,
@@ -87,6 +298,24 @@ def render_song(
     feel_override_json: str | None = None,
     execution_override_json: str | None = None,
 ):
+    standalone_configs = None
+    standalone_structure = None
+    if (execution_override_json or "").strip():
+        try:
+            execution_payload = json.loads(execution_override_json)
+            standalone_configs = parse_section_config(execution_payload)
+            standalone_bpm = int(bpm if bpm is not None else settings.bpm)
+            standalone_structure = _structure_from_execution_config(
+                standalone_configs,
+                standalone_bpm,
+                time_signature,
+            )
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise gr.Error(f"Execution config is invalid: {exc}") from exc
+        section_json = execution_override_json
+        if not (lyrics or "").strip():
+            lyrics = "\n".join(f"bar {index}" for index in range(1, standalone_structure.total_bars + 1))
+
     if not (lyrics or "").strip():
         if settings.test_mode:
             lyrics = DEFAULT_TEST_LYRICS
@@ -95,10 +324,12 @@ def render_song(
     text_map = parse_text(lyrics)
     if not text_map.bars:
         raise gr.Error("no lyric bars were parsed")
-    structure = None
+    structure = standalone_structure
     agent_feels = None
     agent_execution = None
-    if (song_structure_json or "").strip():
+    if standalone_structure is not None:
+        text_map = apply_song_structure(text_map, standalone_structure)
+    elif (song_structure_json or "").strip():
         try:
             structure = parse_song_structure(json.loads(song_structure_json))
             text_map = apply_song_structure(text_map, structure)
@@ -164,7 +395,7 @@ def render_song(
     groove_value = groove if groove in grooves_for_style(preset_value) else default_groove(preset_value)
     summary_warning = None
     if structure:
-        if (feel_override_json or "").strip():
+        if (execution_override_json or "").strip() or (feel_override_json or "").strip():
             agent_feels = None
         else:
             agent = build_drum_feel_agent()
@@ -183,12 +414,22 @@ def render_song(
                     seed=seed_value,
                 )
                 summary_warning = f"LLM Agent 调用失败，已回退规则 Agent：{exc}"
-        if (feel_override_json or "").strip():
+        if (feel_override_json or "").strip() and not (execution_override_json or "").strip():
             try:
                 agent_feels = parse_drum_feels(json.loads(feel_override_json), structure)
             except (TypeError, json.JSONDecodeError, ValueError) as exc:
                 raise gr.Error(f"段落鼓点感觉 JSON 无效：{exc}") from exc
-        agent_execution = compile_execution_config(structure, agent_feels)
+        if (execution_override_json or "").strip():
+            agent_execution = ()
+        else:
+            execution_agent = build_drum_execution_agent()
+            try:
+                agent_execution = execution_agent.generate(structure, agent_feels, seed_value)
+            except (LLMError, ValueError) as exc:
+                agent_execution = compile_execution_config(structure, agent_feels)
+                summary_warning = (
+                    f"{summary_warning}; " if summary_warning else ""
+                ) + f"执行配置 LLM 调用失败，已回退本地编译器：{exc}"
         section_configs = agent_execution
         if (execution_override_json or "").strip():
             try:
@@ -282,36 +523,40 @@ def render_song(
         str(wav_path) if kit_status.ready else None,
         str(midi_path),
         summary,
-        [asdict(feel) for feel in agent_feels] if agent_feels else None,
+        json.dumps([feel.to_plan_dict() for feel in agent_feels], ensure_ascii=False, indent=2)
+        if agent_feels
+        else feel_override_json,
         json.dumps(_execution_config_payload(agent_execution), ensure_ascii=False, indent=2)
         if agent_execution
         else section_json,
     )
 
 
-def build_demo() -> gr.Blocks:
+def _build_demo_legacy() -> gr.Blocks:
     with gr.Blocks(title="Auto MIDI - Drum DNA") as demo:
         gr.Markdown("输入歌词生成鼓组 WAV 和 MIDI。测试模式下歌词为空时使用固定测试文本。")
         with gr.Row():
             with gr.Column(scale=1):
                 lyrics = gr.Textbox(
-                    label="歌词 / 小节文本",
+                    label="歌词 / 自然语言需求",
                     lines=18,
                     value=DEFAULT_TEST_LYRICS if settings.test_mode else None,
-                    placeholder="每个非空行对应一个小节；空行用于段落分隔。",
+                    placeholder="输入歌词，并在其中写入段落、和弦、鼓点和编曲需求；第一步 Agent 会统一读取。",
                 )
-                song_structure_json = gr.Code(
-                    label="歌曲结构与段落和弦（可选）",
+                song_structure_json = gr.Code(visible=False,
+                    label="歌曲结构 JSON（第一步输出，可编辑）",
                     language="json",
                     value="",
                     lines=18,
                 )
-                section_json = gr.Code(
+                section_json = gr.Code(visible=False,
                     label="最终段落执行配置 JSON",
                     language="json",
                     value=DEFAULT_SECTION_CONFIG,
                     lines=22,
                 )
+                read_requirements_button = gr.Button("1. 读取需求（Feel Agent）")
+                compile_execution_button = gr.Button("2. 生成执行表（Execution Agent）")
             with gr.Column(scale=1):
                 preset = gr.Dropdown(label="风格预设", choices=sorted(PRESET_BOUNDS), value=settings.preset)
                 groove = gr.Dropdown(
@@ -332,18 +577,133 @@ def build_demo() -> gr.Blocks:
                 fill = gr.Slider(0, 100, value=settings.fill, step=1, label="整体 Fill")
                 randomness = gr.Slider(0, 100, value=settings.randomness, step=1, label="整体随机性")
                 sample_kit = gr.Textbox(label="样本包目录", value=str(DEFAULT_KIT))
-                generate = gr.Button("生成鼓组", variant="primary")
+                generate = gr.Button("3. 生成鼓点", variant="primary")
 
         with gr.Row():
             audio = gr.Audio(label="WAV 预览", type="filepath")
             midi = gr.File(label="MIDI 下载")
         summary = gr.JSON(label="生成摘要")
-        feel_output = gr.JSON(label="段落鼓点感觉 Agent 输出")
+        feel_output = gr.Code(label="段落鼓点感觉 Agent 输出（可编辑）", language="json", lines=18)
         execution_output = gr.Code(label="最终鼓执行配置", language="json", lines=18)
+        read_requirements_button.click(
+            fn=read_requirements,
+            inputs=[lyrics, bpm, time_signature],
+            outputs=[song_structure_json, feel_output, summary],
+            concurrency_limit=1,
+        )
+        compile_execution_button.click(
+            fn=generate_execution_form,
+            inputs=[song_structure_json, feel_output, preset, groove, seed],
+            outputs=[execution_output],
+        )
         generate.click(
             fn=render_song,
             inputs=[lyrics, song_structure_json, section_json, bpm, complexity, intensity, fill, randomness, preset, groove, time_signature, seed, sample_kit, feel_output, execution_output],
             outputs=[audio, midi, summary, feel_output, execution_output],
+        )
+        preset.change(fn=_groove_dropdown_update, inputs=preset, outputs=groove)
+    return demo
+
+
+def build_demo() -> gr.Blocks:
+    """Build the compact three-tab Gradio interface."""
+
+    with gr.Blocks(title="Auto MIDI - Drum DNA") as demo:
+        gr.Markdown("输入歌词和自然语言编曲需求，依次生成 Feel 计划、执行配置和鼓点。")
+
+        lyrics = gr.Textbox(
+            label="歌词 / 自然语言需求",
+            lines=16,
+            value=DEFAULT_TEST_LYRICS if settings.test_mode else None,
+            placeholder="输入歌词、段落、小节数、和弦及鼓点要求。",
+        )
+        song_structure_json = gr.State(value="")
+        section_json = gr.State(value=DEFAULT_SECTION_CONFIG)
+
+        with gr.Row():
+            read_requirements_button = gr.Button("1. 生成 Feel 计划")
+            compile_execution_button = gr.Button("2. 生成执行配置")
+            generate = gr.Button("3. 生成鼓点", variant="primary")
+
+        with gr.Tabs():
+            with gr.Tab("Feel 计划"):
+                feel_output = gr.Code(
+                    label="段落鼓点 Feel（可编辑）",
+                    language="json",
+                    lines=24,
+                )
+            with gr.Tab("执行配置"):
+                execution_output = gr.Code(
+                    label="最终鼓执行配置（可编辑）",
+                    language="json",
+                    lines=24,
+                )
+            with gr.Tab("风格预设"):
+                with gr.Row():
+                    preset = gr.Dropdown(
+                        label="风格预设",
+                        choices=sorted(PRESET_BOUNDS),
+                        value=settings.preset,
+                    )
+                    groove = gr.Dropdown(
+                        label="节奏型",
+                        choices=grooves_for_style(settings.preset),
+                        value=settings.groove or default_groove(settings.preset),
+                    )
+                with gr.Row():
+                    time_signature = gr.Dropdown(
+                        label="拍号",
+                        choices=list(SUPPORTED_TIME_SIGNATURES),
+                        value=settings.time_signature,
+                    )
+                    bpm = gr.Slider(30, 260, value=settings.bpm, step=1, label="BPM")
+                    seed = gr.Number(value=7, precision=0, label="Seed（-1 为随机）")
+                with gr.Row():
+                    complexity = gr.Slider(0, 100, value=settings.complexity, step=1, label="整体复杂度")
+                    intensity = gr.Slider(0, 100, value=settings.intensity, step=1, label="整体强度")
+                with gr.Row():
+                    fill = gr.Slider(0, 100, value=settings.fill, step=1, label="整体 Fill")
+                    randomness = gr.Slider(0, 100, value=settings.randomness, step=1, label="整体随机性")
+                sample_kit = gr.Textbox(label="样本包目录", value=str(DEFAULT_KIT))
+
+        with gr.Row():
+            audio = gr.Audio(label="WAV 预览", type="filepath")
+            midi = gr.File(label="MIDI 下载")
+        summary = gr.JSON(label="处理摘要")
+
+        read_requirements_button.click(
+            fn=read_requirements,
+            inputs=[lyrics, bpm, time_signature],
+            outputs=[song_structure_json, feel_output, summary],
+            concurrency_limit=1,
+        )
+        compile_execution_button.click(
+            fn=generate_execution_form,
+            inputs=[song_structure_json, feel_output, preset, groove, seed],
+            outputs=[execution_output],
+            concurrency_limit=1,
+        )
+        generate.click(
+            fn=render_song,
+            inputs=[
+                lyrics,
+                song_structure_json,
+                section_json,
+                bpm,
+                complexity,
+                intensity,
+                fill,
+                randomness,
+                preset,
+                groove,
+                time_signature,
+                seed,
+                sample_kit,
+                feel_output,
+                execution_output,
+            ],
+            outputs=[audio, midi, summary, feel_output, execution_output],
+            concurrency_limit=1,
         )
         preset.change(fn=_groove_dropdown_update, inputs=preset, outputs=groove)
     return demo

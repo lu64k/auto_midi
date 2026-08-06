@@ -98,6 +98,21 @@ class SongStructureTests(unittest.TestCase):
         self.assertEqual([bar.section for bar in mapped.bars], [0, 1, 1, 1])
         self.assertTrue(mapped.bars[0].ends_section)
 
+    def test_structure_bar_count_is_independent_of_lyric_line_count(self) -> None:
+        structure = parse_song_structure(
+            {
+                "bpm": 100,
+                "time_signature": "4/4",
+                "sections": [
+                    {"id": "verse", "type": "verse", "bars": 2, "chords": []},
+                    {"id": "chorus", "type": "chorus", "bars": 2, "chords": []},
+                ],
+            }
+        )
+        mapped = apply_song_structure(parse_text("one\ntwo\nthree\nfour\nfive\nsix"), structure)
+        self.assertEqual(len(mapped.bars), 4)
+        self.assertEqual([bar.section for bar in mapped.bars], [0, 0, 1, 1])
+
 
 if __name__ == "__main__":
     unittest.main()
