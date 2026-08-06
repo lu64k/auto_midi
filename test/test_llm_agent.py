@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from auto_midi.drum_execution import LLMDrumExecutionAgent
+from auto_midi.drum_execution import LLMDrumExecutionAgent, validate_execution_routing
 from auto_midi.drum_feel import LLMDrumFeelAgent
 from auto_midi.llm_client import _parse_json_content
 from auto_midi.section_config import parse_section_config
@@ -43,7 +43,8 @@ class ExecutionFakeClient:
     def complete_json(self, system_prompt: str, user_prompt: str, seed: int):
         self.system_prompt = system_prompt
         self.user_prompt = user_prompt
-        return {
+        routed = "## Live catalog and constraints" in system_prompt
+        payload = {
             "sections": [
                 {
                     "name": "verse_1",
@@ -58,13 +59,24 @@ class ExecutionFakeClient:
                     "allowed": [],
                     "required": ["snare"],
                     "voice_placements": {"snare": "section_start"},
-                    "groove": "sparse_rock",
+                    "groove": "classic_rock" if routed else "sparse_rock",
                     "cymbal_role": "closed_hat_quarters",
                     "intensity_curve": [{"bar": 1, "value": 35}, {"bar": 2, "value": 45}],
                     "dna_overrides": {"backbeat_weight": 0.9},
                 }
             ]
         }
+        if routed:
+            payload["routing"] = {
+                "style": "rock",
+                "global_groove": "classic_rock",
+                "style_source": "ui_locked",
+                "groove_source": "ui_locked",
+                "confidence": 1.0,
+                "reason": "UI locked both routing levels",
+                "section_override_reasons": {},
+            }
+        return payload
 
 
 class SongPlanFakeClient:
@@ -172,8 +184,36 @@ class LLMTests(unittest.TestCase):
         )
         self.assertIn('"selected_style": "rock"', client.user_prompt)
         self.assertIn('"selected_global_groove": "classic_rock"', client.user_prompt)
-        self.assertIn('"sparse_rock"', client.user_prompt)
-        self.assertNotIn('"free"', client.user_prompt)
+        self.assertIn('"sparse_rock"', client.system_prompt)
+        self.assertIn("Prefer one groove for the whole song", client.system_prompt)
+
+    def test_locked_groove_rejects_section_variation(self) -> None:
+        payload = {
+            "routing": {
+                "style": "rock", "global_groove": "classic_rock",
+                "confidence": 1, "reason": "locked", "section_override_reasons": {},
+            },
+            "sections": [],
+        }
+        configs = parse_section_config({
+            "sections": [{"name": "chorus", "bars": 4, "groove": "driving_rock"}]
+        })
+        with self.assertRaisesRegex(ValueError, "locked UI groove"):
+            validate_execution_routing(payload, configs, "rock", "classic_rock")
+
+    def test_unexplained_groove_override_is_rejected(self) -> None:
+        payload = {
+            "routing": {
+                "style": "rock", "global_groove": "classic_rock",
+                "confidence": 0.8, "reason": "rock", "section_override_reasons": {},
+            },
+            "sections": [],
+        }
+        configs = parse_section_config({
+            "sections": [{"name": "bridge", "bars": 4, "groove": "half_time_rock"}]
+        })
+        with self.assertRaisesRegex(ValueError, "require rhythm-based reasons"):
+            validate_execution_routing(payload, configs, "rock", "free")
 
     def test_song_plan_repeats_short_chord_progression(self) -> None:
         client = SongPlanFakeClient()

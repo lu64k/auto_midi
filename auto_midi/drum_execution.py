@@ -2,13 +2,41 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 import json
 
 from .drum_feel import DrumFeel
-from .groove import GROOVE_PROFILES, grooves_for_style
+from .groove import GROOVE_PROFILES
+from .groove_routing_skill import build_routing_skill_context, routing_catalog_metadata
 from .section_config import SectionConfig, parse_section_config
 from .song_structure import SongStructure, resolved_chord_bars
+from .style_catalog import groove_owner, style_exists
+
+
+@dataclass(frozen=True)
+class ExecutionRouting:
+    style: str
+    global_groove: str
+    style_source: str
+    groove_source: str
+    confidence: float
+    reason: str
+    section_override_reasons: dict[str, str]
+    catalog_version: int
+    catalog_hash: str
+
+    def to_dict(self) -> dict:
+        return {
+            "style": self.style,
+            "global_groove": self.global_groove,
+            "style_source": self.style_source,
+            "groove_source": self.groove_source,
+            "confidence": self.confidence,
+            "reason": self.reason,
+            "section_override_reasons": self.section_override_reasons,
+            "catalog_version": self.catalog_version,
+            "catalog_hash": self.catalog_hash,
+        }
 
 
 def compile_execution_config(
@@ -55,10 +83,13 @@ def compile_execution_config(
     return tuple(result)
 
 
-def execution_config_payload(configs: tuple[SectionConfig, ...]) -> dict:
+def execution_config_payload(
+    configs: tuple[SectionConfig, ...],
+    routing: ExecutionRouting | None = None,
+) -> dict:
     """Serialize execution configs for CLI/Gradio inspection or editing."""
 
-    return {
+    payload = {
         "sections": [
             {
                 "name": config.name,
@@ -83,6 +114,9 @@ def execution_config_payload(configs: tuple[SectionConfig, ...]) -> dict:
             for config in configs
         ]
     }
+    if routing is not None:
+        payload["routing"] = routing.to_dict()
+    return payload
 
 
 class RuleBasedDrumExecutionAgent:
@@ -105,14 +139,39 @@ class LLMDrumExecutionAgent:
     ) -> tuple[SectionConfig, ...]:
         """Compile the first Agent payload without pre-parsing its feel fields."""
 
+        _, configs = self.generate_execution_plan(plan_payload, seed, preset, groove)
+        return configs
+
+    def generate_execution_plan(
+        self,
+        plan_payload: dict,
+        seed: int,
+        preset: str | None = None,
+        groove: str | None = None,
+    ) -> tuple[ExecutionRouting, tuple[SectionConfig, ...]]:
+        """Route style/groove with the live skill, then compile and validate sections."""
+
         context = {
             "selected_style": preset,
             "selected_global_groove": groove,
-            "allowed_section_grooves": list(grooves_for_style(preset)) if preset else [],
             "plan": plan_payload,
         }
-        payload = self.client.complete_json(_SYSTEM_PROMPT, json.dumps(context, ensure_ascii=False), seed)
-        return parse_section_config(payload)
+        system_prompt = _SYSTEM_PROMPT + "\n\n" + build_routing_skill_context(preset, groove)
+        correction = None
+        for attempt in range(2):
+            request = dict(context)
+            if correction:
+                request["validation_error_to_fix"] = correction
+            payload = self.client.complete_json(system_prompt, json.dumps(request, ensure_ascii=False), seed)
+            try:
+                configs = parse_section_config(payload)
+                routing, configs = validate_execution_routing(payload, configs, preset, groove)
+                return routing, configs
+            except ValueError as exc:
+                correction = str(exc)
+                if attempt:
+                    raise
+        raise ValueError("execution routing failed")
 
     def generate(self, structure: SongStructure, feels: tuple[DrumFeel, ...], seed: int) -> tuple[SectionConfig, ...]:
         context = {
@@ -185,18 +244,12 @@ Use only valid drum voices: kick, rim, snare, clap, low_tom, mid_tom,
 closed_hat, open_hat, crash, ride. Use these exact identifiers; write
 closed_hat or open_hat, never hi-hat/hihat/hat.
 
-Use only valid grooves: free, boom_bap, hiphop, trap, minimal, classic_rock,
-driving_rock, half_time_rock, sparse_rock, shuffle_rock, blues_rock, punk_rock,
-indie_rock, hard_rock, arena_rock, double_kick_rock, half_time_hard_rock,
-sparse_dream, washed_8th, post_rock_build, post_rock_peak, post_rock_release,
-psych_shuffle, psych_groove, motorik_rock, swing_ride, jazz_waltz,
-blues_shuffle, slow_blues, rnb_soul, rnb_modern, country_train,
-two_beat_country, classic_funk, syncopated_funk, one_drop, rockers,
-ska_offbeat. Choose a section-specific groove from the semantic brief.
-When allowed_section_grooves is non-empty, every section groove must come from
-that list. selected_global_groove is the default when the brief does not call
-for a different groove inside the selected style. Never cross into another
-style's groove merely because a section is sparse or quiet.
+The appended route-drum-style-groove skill contains the authoritative live
+style/groove catalog and routing policy. Follow its locked/free constraints.
+Return a concrete non-free routing.style and routing.global_groove. Start every
+section with global_groove. If a section truly needs a different skeleton, put
+a concise rhythm-based explanation in routing.section_override_reasons using
+the section name as key. Do not use groove changes for energy changes.
 
 cymbal_role may be none, closed_hat_quarters, closed_hat_eighths,
 open_hat_quarters, ride_quarters, ride_eighths, or ride_bell_offbeats. Use this
@@ -207,7 +260,70 @@ backbeat_weight, syncopation, swing, mutation, skeleton_strength,
 backbeat_variation, ornament_amount, hat_openness, fill_vocabulary,
 dynamic_shape, groove_anchor, pulse, low_bias, mid_bias, and high_density.
 Do not put groove inside dna_overrides; use the top-level groove field.
-Return {\"sections\": [...]}."""
+Return exactly {\"routing\": {...}, \"sections\": [...]}. routing needs style,
+global_groove, style_source (ui_locked or agent_routed), groove_source
+(ui_locked or agent_routed), confidence (0-1), reason, and
+section_override_reasons. Catalog version/hash are filled by the program."""
+
+
+def validate_execution_routing(
+    payload: dict,
+    configs: tuple[SectionConfig, ...],
+    ui_style: str | None,
+    ui_groove: str | None,
+) -> tuple[ExecutionRouting, tuple[SectionConfig, ...]]:
+    raw = payload.get("routing") if isinstance(payload, dict) else None
+    if not isinstance(raw, dict):
+        raise ValueError("execution output requires a routing object")
+    style = str(raw.get("style", "")).strip()
+    global_groove = str(raw.get("global_groove", "")).strip()
+    if style == "free" or not style_exists(style):
+        raise ValueError("routing.style must be a concrete catalog style")
+    if global_groove == "free" or groove_owner(global_groove) != style:
+        raise ValueError("routing.global_groove must be a concrete groove inside routing.style")
+    style_locked = bool(ui_style and ui_style != "free")
+    groove_locked = bool(ui_groove and ui_groove != "free")
+    if style_locked and style != ui_style:
+        raise ValueError(f"routing style must remain locked to {ui_style}")
+    if groove_locked and global_groove != ui_groove:
+        raise ValueError(f"global groove must remain locked to {ui_groove}")
+
+    normalized = tuple(
+        replace(config, groove=config.groove or global_groove)
+        for config in configs
+    )
+    if any(groove_owner(config.groove) != style for config in normalized):
+        raise ValueError("every section groove must belong to the routed style")
+    if groove_locked and any(config.groove != ui_groove for config in normalized):
+        raise ValueError("a locked UI groove must be used by every section")
+    reasons = raw.get("section_override_reasons", {})
+    if not isinstance(reasons, dict):
+        raise ValueError("routing.section_override_reasons must be an object")
+    overrides = [config.name for config in normalized if config.groove != global_groove]
+    missing_reasons = [name for name in overrides if not str(reasons.get(name, "")).strip()]
+    if missing_reasons:
+        raise ValueError(f"groove overrides require rhythm-based reasons: {', '.join(missing_reasons)}")
+    unique_grooves = {config.groove for config in normalized}
+    if len(unique_grooves) > 2 and not bool(raw.get("exceptional_multiple_grooves")):
+        raise ValueError("more than two grooves requires exceptional_multiple_grooves=true")
+    try:
+        confidence = float(raw.get("confidence", 0.0))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("routing confidence must be numeric") from exc
+    if not 0 <= confidence <= 1:
+        raise ValueError("routing confidence must be between 0 and 1")
+    metadata = routing_catalog_metadata()
+    return ExecutionRouting(
+        style=style,
+        global_groove=global_groove,
+        style_source="ui_locked" if style_locked else "agent_routed",
+        groove_source="ui_locked" if groove_locked else "agent_routed",
+        confidence=confidence,
+        reason=str(raw.get("reason", "")).strip(),
+        section_override_reasons={str(key): str(value) for key, value in reasons.items()},
+        catalog_version=metadata["catalog_version"],
+        catalog_hash=metadata["catalog_hash"],
+    ), normalized
 
 
 def _percent(value: float) -> int:

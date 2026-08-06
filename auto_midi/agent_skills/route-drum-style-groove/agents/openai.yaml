@@ -1,0 +1,4 @@
+interface:
+  display_name: "Drum Style & Groove Router"
+  short_description: "Route song style and stable section grooves"
+  default_prompt: "Use $route-drum-style-groove to choose one song style and the smallest natural set of section grooves."

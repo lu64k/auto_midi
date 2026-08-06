@@ -155,6 +155,26 @@ natural-language requirements + lyrics
 
 Both intermediate JSON blocks are editable before the next button is pressed.
 
+The second Agent routes two separate levels: one song-level `style`, then a
+`groove` skeleton for the sections. `free` is available at both levels. The
+router starts with one global groove and only creates a section override for a
+real rhythmic-identity change such as half-time, shuffle, or one-drop; ordinary
+energy, fill, cymbal, and density changes keep the same groove.
+
+`使用执行配置中的风格与节奏型` controls which source wins during rendering:
+
+- checked: use the routed style and grooves stored in the editable execution
+  JSON;
+- unchecked: use the current UI style/groove controls. A fixed UI groove is
+  applied to all sections, while `free` accepts the Agent's resolved route.
+
+The live style catalog is `auto_midi/catalog/drum_styles.json`. It is the
+single source for the UI choices, routing Skill context, DNA bounds, groove
+profiles, and explicit step patterns. The process checks it for changes every
+five seconds and swaps in a valid update atomically, so adding a style or
+groove there does not require restarting Gradio. Invalid edits leave the last
+valid catalog active and produce a warning.
+
 ### Internal LLM gateway
 
 When the system environment variable `10086` is available, the Gradio structure

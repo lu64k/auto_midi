@@ -5,6 +5,7 @@ import random
 
 from .text_parser import TextMap
 from .groove import GROOVE_ANCHORS as GROOVE_TEMPLATE_ANCHORS, GROOVE_PULSES, GROOVE_PROFILES, default_groove
+from .style_catalog import STYLE_BOUNDS
 
 
 FILL_VOCABULARIES = ("snare_roll", "tom_run", "hat_roll", "silence", "mixed")
@@ -12,263 +13,31 @@ DYNAMIC_SHAPES = ("flat", "front_heavy", "back_heavy", "crescendo", "decrescendo
 GROOVE_ANCHORS = ("strong_one", "one_drop", "four_on_floor", "offbeat_push", "floating")
 
 
-PRESET_BOUNDS = {
-    "free": {},
-    "boom_bap": {
-        "swing": (0.08, 0.22),
-        "syncopation": (0.25, 0.6),
-        "high_density": (0.35, 0.7),
-        "mid_bias": (0.6, 0.95),
-        "backbeat_weight": (0.7, 1.0),
-        "ghost_note_bias": (0.25, 0.65),
-        "hat_openness": (0.02, 0.18),
-        "kick_snare_lock": (0.55, 0.9),
-        "phrase_memory": (0.55, 0.9),
-        "fill_vocabulary": ("snare_roll", "mixed"),
-        "dynamic_shape": ("pocket", "front_heavy"),
-        "groove_anchor": ("strong_one", "floating", "offbeat_push"),
-    },
-    "hiphop": {
-        "swing": (0.06, 0.2),
-        "syncopation": (0.25, 0.65),
-        "high_density": (0.25, 0.7),
-        "backbeat_weight": (0.65, 1.0),
-        "ghost_note_bias": (0.25, 0.7),
-        "hat_openness": (0.02, 0.2),
-        "kick_snare_lock": (0.45, 0.85),
-        "phrase_memory": (0.55, 0.9),
-        "fill_vocabulary": ("snare_roll", "mixed", "silence"),
-        "dynamic_shape": ("pocket", "flat", "front_heavy"),
-        "groove_anchor": ("strong_one", "floating", "offbeat_push"),
-    },
-    "trap": {
-        "pulse": (16, 16),
-        "swing": (0.0, 0.08),
-        "syncopation": (0.45, 0.9),
-        "high_density": (0.55, 1.0),
-        "low_bias": (0.55, 0.95),
-        "backbeat_weight": (0.45, 0.8),
-        "ghost_note_bias": (0.05, 0.35),
-        "hat_openness": (0.05, 0.25),
-        "kick_snare_lock": (0.25, 0.65),
-        "phrase_memory": (0.35, 0.75),
-        "fill_vocabulary": ("hat_roll", "snare_roll", "mixed"),
-        "dynamic_shape": ("flat", "back_heavy", "crescendo"),
-        "groove_anchor": ("floating", "strong_one", "offbeat_push"),
-    },
-    "minimal": {
-        "syncopation": (0.05, 0.35),
-        "high_density": (0.1, 0.45),
-        "mutation": (0.05, 0.3),
-        "backbeat_weight": (0.25, 0.7),
-        "ghost_note_bias": (0.0, 0.25),
-        "hat_openness": (0.0, 0.12),
-        "kick_snare_lock": (0.25, 0.75),
-        "phrase_memory": (0.7, 1.0),
-        "fill_vocabulary": ("silence", "snare_roll"),
-        "dynamic_shape": ("flat", "decrescendo"),
-        "groove_anchor": ("floating", "strong_one"),
-    },
-    "rock": {
-        "pulse": (8, 16),
-        "swing": (0.0, 0.05),
-        "syncopation": (0.1, 0.35),
-        "low_bias": (0.65, 1.0),
-        "mid_bias": (0.7, 1.0),
-        "backbeat_weight": (0.8, 1.0),
-        "ghost_note_bias": (0.05, 0.35),
-        "hat_openness": (0.08, 0.35),
-        "kick_snare_lock": (0.7, 1.0),
-        "phrase_memory": (0.45, 0.8),
-        "fill_vocabulary": ("tom_run", "snare_roll", "mixed"),
-        "dynamic_shape": ("front_heavy", "crescendo", "flat"),
-        "groove_anchor": ("strong_one",),
-    },
-    "hard_rock": {
-        "pulse": (8, 8),
-        "swing": (0.0, 0.08),
-        "syncopation": (0.1, 0.4),
-        "low_bias": (0.7, 1.0),
-        "mid_bias": (0.75, 1.0),
-        "high_density": (0.5, 0.9),
-        "backbeat_weight": (0.85, 1.0),
-        "ghost_note_bias": (0.05, 0.3),
-        "hat_openness": (0.08, 0.3),
-        "kick_snare_lock": (0.75, 1.0),
-        "phrase_memory": (0.45, 0.8),
-        "fill_vocabulary": ("tom_run", "snare_roll", "mixed"),
-        "dynamic_shape": ("front_heavy", "crescendo", "flat"),
-        "groove_anchor": ("strong_one",),
-    },
-    "dream_pop": {
-        "pulse": (8, 8),
-        "swing": (0.0, 0.12),
-        "syncopation": (0.05, 0.35),
-        "low_bias": (0.15, 0.5),
-        "mid_bias": (0.15, 0.55),
-        "high_density": (0.1, 0.45),
-        "backbeat_weight": (0.25, 0.7),
-        "ghost_note_bias": (0.0, 0.25),
-        "hat_openness": (0.1, 0.4),
-        "kick_snare_lock": (0.2, 0.65),
-        "phrase_memory": (0.65, 0.95),
-        "fill_vocabulary": ("silence", "mixed"),
-        "dynamic_shape": ("pocket", "decrescendo", "flat"),
-        "groove_anchor": ("strong_one", "floating"),
-    },
-    "post_rock": {
-        "pulse": (8, 16),
-        "swing": (0.0, 0.08),
-        "syncopation": (0.15, 0.55),
-        "low_bias": (0.35, 0.85),
-        "mid_bias": (0.45, 0.9),
-        "high_density": (0.25, 0.9),
-        "backbeat_weight": (0.45, 0.95),
-        "ghost_note_bias": (0.05, 0.4),
-        "hat_openness": (0.05, 0.35),
-        "kick_snare_lock": (0.35, 0.85),
-        "phrase_memory": (0.35, 0.8),
-        "fill_vocabulary": ("tom_run", "snare_roll", "mixed"),
-        "dynamic_shape": ("crescendo", "decrescendo", "flat"),
-        "groove_anchor": ("strong_one", "floating"),
-    },
-    "psychedelic": {
-        "pulse": (8, 16),
-        "swing": (0.08, 0.28),
-        "syncopation": (0.35, 0.8),
-        "low_bias": (0.35, 0.8),
-        "mid_bias": (0.35, 0.8),
-        "high_density": (0.3, 0.8),
-        "backbeat_weight": (0.45, 0.85),
-        "ghost_note_bias": (0.2, 0.65),
-        "hat_openness": (0.1, 0.5),
-        "kick_snare_lock": (0.25, 0.75),
-        "phrase_memory": (0.7, 0.98),
-        "fill_vocabulary": ("tom_run", "hat_roll", "mixed"),
-        "dynamic_shape": ("pocket", "crescendo", "flat"),
-        "groove_anchor": ("strong_one", "floating", "offbeat_push"),
-    },
-    "jazz": {
-        "pulse": (8, 16),
-        "swing": (0.12, 0.32),
-        "syncopation": (0.55, 1.0),
-        "low_bias": (0.15, 0.55),
-        "mid_bias": (0.35, 0.75),
-        "high_density": (0.55, 0.95),
-        "backbeat_weight": (0.1, 0.55),
-        "ghost_note_bias": (0.55, 1.0),
-        "hat_openness": (0.18, 0.55),
-        "kick_snare_lock": (0.05, 0.4),
-        "phrase_memory": (0.25, 0.65),
-        "fill_vocabulary": ("snare_roll", "silence", "mixed"),
-        "dynamic_shape": ("pocket", "crescendo", "decrescendo"),
-        "groove_anchor": ("floating", "offbeat_push"),
-    },
-    "blues": {
-        "pulse": (8, 8),
-        "swing": (0.18, 0.35),
-        "syncopation": (0.15, 0.45),
-        "low_bias": (0.45, 0.85),
-        "mid_bias": (0.55, 0.9),
-        "high_density": (0.35, 0.75),
-        "backbeat_weight": (0.65, 0.95),
-        "ghost_note_bias": (0.1, 0.4),
-        "hat_openness": (0.05, 0.25),
-        "kick_snare_lock": (0.55, 0.9),
-        "phrase_memory": (0.55, 0.9),
-        "fill_vocabulary": ("snare_roll", "tom_run", "mixed"),
-        "dynamic_shape": ("pocket", "front_heavy", "flat"),
-        "groove_anchor": ("strong_one",),
-    },
-    "rnb": {
-        "pulse": (16, 16),
-        "swing": (0.02, 0.14),
-        "syncopation": (0.5, 0.95),
-        "low_bias": (0.35, 0.8),
-        "mid_bias": (0.55, 0.95),
-        "high_density": (0.45, 0.9),
-        "backbeat_weight": (0.55, 0.9),
-        "ghost_note_bias": (0.4, 0.9),
-        "hat_openness": (0.05, 0.3),
-        "kick_snare_lock": (0.25, 0.7),
-        "phrase_memory": (0.45, 0.8),
-        "fill_vocabulary": ("snare_roll", "hat_roll", "mixed"),
-        "dynamic_shape": ("pocket", "flat", "back_heavy"),
-        "groove_anchor": ("offbeat_push", "floating"),
-    },
-    "country": {
-        "pulse": (8, 16),
-        "swing": (0.03, 0.16),
-        "syncopation": (0.1, 0.4),
-        "low_bias": (0.55, 0.9),
-        "mid_bias": (0.55, 0.9),
-        "high_density": (0.35, 0.75),
-        "backbeat_weight": (0.6, 0.95),
-        "ghost_note_bias": (0.05, 0.35),
-        "hat_openness": (0.03, 0.22),
-        "kick_snare_lock": (0.65, 0.95),
-        "phrase_memory": (0.6, 0.9),
-        "fill_vocabulary": ("snare_roll", "tom_run"),
-        "dynamic_shape": ("flat", "front_heavy"),
-        "groove_anchor": ("strong_one", "four_on_floor"),
-    },
-    "funk": {
-        "pulse": (16, 16),
-        "swing": (0.02, 0.14),
-        "syncopation": (0.55, 0.95),
-        "low_bias": (0.45, 0.85),
-        "mid_bias": (0.55, 0.95),
-        "high_density": (0.55, 0.95),
-        "backbeat_weight": (0.55, 0.9),
-        "ghost_note_bias": (0.55, 1.0),
-        "hat_openness": (0.12, 0.45),
-        "kick_snare_lock": (0.35, 0.75),
-        "phrase_memory": (0.55, 0.9),
-        "fill_vocabulary": ("snare_roll", "hat_roll", "mixed"),
-        "dynamic_shape": ("pocket", "flat"),
-        "groove_anchor": ("offbeat_push", "strong_one", "floating"),
-    },
-    "reggae": {
-        "pulse": (8, 16),
-        "swing": (0.08, 0.22),
-        "syncopation": (0.45, 0.85),
-        "low_bias": (0.3, 0.7),
-        "mid_bias": (0.45, 0.85),
-        "high_density": (0.25, 0.65),
-        "backbeat_weight": (0.2, 0.6),
-        "ghost_note_bias": (0.2, 0.65),
-        "hat_openness": (0.15, 0.55),
-        "kick_snare_lock": (0.1, 0.45),
-        "phrase_memory": (0.55, 0.9),
-        "fill_vocabulary": ("silence", "snare_roll", "mixed"),
-        "dynamic_shape": ("back_heavy", "pocket", "flat"),
-        "groove_anchor": ("one_drop",),
-    },
-}
+PRESET_BOUNDS = STYLE_BOUNDS
 
 
 @dataclass(frozen=True)
 class DrummerDNA:
-    style: str  # Style boundary used to generate this individual drummer, e.g. reggae, hiphop, jazz. 风格边界，用于生成该鼓手个体（如 reggae、hiphop、jazz）。
-    pulse: int  # Main subdivision feel: 4, 8, or 16 steps per bar emphasis. 主要细分律动：每小节以 4/8/16 步为重心。
-    low_bias: float  # Kick/low-slot activity tendency. 底鼓/低频声部活跃倾向。
-    mid_bias: float  # Snare, rim, and clap activity tendency. 军鼓、rim、clap 等中频声部活跃倾向。
-    high_density: float  # Hat/cymbal density tendency. 镲片（hat/cymbal）密度倾向。
-    backbeat_weight: float  # Stability and strength of snare-like backbeat hits. 反拍（类似军鼓落点）的稳定性与力度权重。
-    ghost_note_bias: float  # Tendency to add quiet rim/snare ghost notes. 添加轻弱 ghost note（rim/snare）的倾向。
-    hat_openness: float  # Probability bias toward open hats instead of closed hats. 开镲相对闭镲的概率偏向。
-    kick_snare_lock: float  # How strongly kick/snare preserve a traditional groove skeleton. 底鼓/军鼓保持传统 groove 骨架的强度。
-    phrase_memory: float  # Chance to reuse material from the previous bar. 复用上一小节素材的概率。
-    accent_follow: float  # How strongly text token starts become drum accents. 文本 token 起始位置转为重音的跟随强度。
-    rest_follow: float  # How strongly punctuation and phrase breaks create rests. 标点与语句停顿转为休止的跟随强度。
-    syncopation: float  # Off-beat and weak-step activity tendency. 切分与弱拍位置的活跃倾向。
-    repetition: float  # Higher values keep bars more repetitive and loop-like. 数值越高，小节越重复、越循环化。
-    mutation: float  # Bar-to-bar variation and text-driven extra event tendency. 小节间变化与文本驱动附加事件的倾向。
-    fill_aggression: float  # Fill probability and density multiplier. Fill（加花）出现概率与密度的倍率。
-    fill_vocabulary: str  # Fill language: snare_roll, tom_run, hat_roll, silence, or mixed. Fill 语言集合：snare_roll、tom_run、hat_roll、silence 或 mixed。
-    dynamic_shape: str  # Per-bar velocity curve: flat, front_heavy, back_heavy, crescendo, decrescendo, or pocket. 每小节力度曲线：flat、front_heavy、back_heavy、crescendo、decrescendo 或 pocket。
-    groove_anchor: str  # Core groove gravity: strong_one, one_drop, four_on_floor, offbeat_push, or floating. 核心 groove 重心：strong_one、one_drop、four_on_floor、offbeat_push 或 floating。
-    swing: float  # Timing delay applied to off-steps for swing/shuffle feel. 对非强拍步长施加时值延后，以形成 swing/shuffle 感。
+    style: str  # Style boundary used to generate this individual drummer, e.g. reggae, hiphop, jazz. 椋庢牸杈圭晫锛岀敤浜庣敓鎴愯榧撴墜涓綋锛堝 reggae銆乭iphop銆乯azz锛夈€?
+    pulse: int  # Main subdivision feel: 4, 8, or 16 steps per bar emphasis. 涓昏缁嗗垎寰嬪姩锛氭瘡灏忚妭浠?4/8/16 姝ヤ负閲嶅績銆?
+    low_bias: float  # Kick/low-slot activity tendency. 搴曢紦/浣庨澹伴儴娲昏穬鍊惧悜銆?
+    mid_bias: float  # Snare, rim, and clap activity tendency. 鍐涢紦銆乺im銆乧lap 绛変腑棰戝０閮ㄦ椿璺冨€惧悜銆?
+    high_density: float  # Hat/cymbal density tendency. 闀茬墖锛坔at/cymbal锛夊瘑搴﹀€惧悜銆?
+    backbeat_weight: float  # Stability and strength of snare-like backbeat hits. 鍙嶆媿锛堢被浼煎啗榧撹惤鐐癸級鐨勭ǔ瀹氭€т笌鍔涘害鏉冮噸銆?
+    ghost_note_bias: float  # Tendency to add quiet rim/snare ghost notes. 娣诲姞杞诲急 ghost note锛坮im/snare锛夌殑鍊惧悜銆?
+    hat_openness: float  # Probability bias toward open hats instead of closed hats. 寮€闀茬浉瀵归棴闀茬殑姒傜巼鍋忓悜銆?
+    kick_snare_lock: float  # How strongly kick/snare preserve a traditional groove skeleton. 搴曢紦/鍐涢紦淇濇寔浼犵粺 groove 楠ㄦ灦鐨勫己搴︺€?
+    phrase_memory: float  # Chance to reuse material from the previous bar. 澶嶇敤涓婁竴灏忚妭绱犳潗鐨勬鐜囥€?
+    accent_follow: float  # How strongly text token starts become drum accents. 鏂囨湰 token 璧峰浣嶇疆杞负閲嶉煶鐨勮窡闅忓己搴︺€?
+    rest_follow: float  # How strongly punctuation and phrase breaks create rests. 鏍囩偣涓庤鍙ュ仠椤胯浆涓轰紤姝㈢殑璺熼殢寮哄害銆?
+    syncopation: float  # Off-beat and weak-step activity tendency. 鍒囧垎涓庡急鎷嶄綅缃殑娲昏穬鍊惧悜銆?
+    repetition: float  # Higher values keep bars more repetitive and loop-like. 鏁板€艰秺楂橈紝灏忚妭瓒婇噸澶嶃€佽秺寰幆鍖栥€?
+    mutation: float  # Bar-to-bar variation and text-driven extra event tendency. 灏忚妭闂村彉鍖栦笌鏂囨湰椹卞姩闄勫姞浜嬩欢鐨勫€惧悜銆?
+    fill_aggression: float  # Fill probability and density multiplier. Fill锛堝姞鑺憋級鍑虹幇姒傜巼涓庡瘑搴︾殑鍊嶇巼銆?
+    fill_vocabulary: str  # Fill language: snare_roll, tom_run, hat_roll, silence, or mixed. Fill 璇█闆嗗悎锛歴nare_roll銆乼om_run銆乭at_roll銆乻ilence 鎴?mixed銆?
+    dynamic_shape: str  # Per-bar velocity curve: flat, front_heavy, back_heavy, crescendo, decrescendo, or pocket. 姣忓皬鑺傚姏搴︽洸绾匡細flat銆乫ront_heavy銆乥ack_heavy銆乧rescendo銆乨ecrescendo 鎴?pocket銆?
+    groove_anchor: str  # Core groove gravity: strong_one, one_drop, four_on_floor, offbeat_push, or floating. 鏍稿績 groove 閲嶅績锛歴trong_one銆乷ne_drop銆乫our_on_floor銆乷ffbeat_push 鎴?floating銆?
+    swing: float  # Timing delay applied to off-steps for swing/shuffle feel. 瀵归潪寮烘媿姝ラ暱鏂藉姞鏃跺€煎欢鍚庯紝浠ュ舰鎴?swing/shuffle 鎰熴€?
 
     groove: str = "free"
     skeleton_strength: float = 0.5

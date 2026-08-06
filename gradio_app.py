@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
 import random
@@ -8,7 +9,12 @@ import tempfile
 import gradio as gr
 
 from auto_midi.drummer_dna import PRESET_BOUNDS, generate_dna
-from auto_midi.drum_execution import build_drum_execution_agent, compile_execution_config, execution_config_payload
+from auto_midi.drum_execution import (
+    build_drum_execution_agent,
+    compile_execution_config,
+    execution_config_payload,
+    validate_execution_routing,
+)
 from auto_midi.drum_feel import RuleBasedDrumFeelAgent, build_drum_feel_agent, normalize_plan_structure, parse_drum_feels
 from auto_midi.groove import default_groove, grooves_for_style
 from auto_midi.llm_client import LLMError
@@ -19,6 +25,7 @@ from auto_midi.section_config import load_section_config, parse_section_config
 from auto_midi.song_requirements import build_requirements_agent, fallback_song_structure
 from auto_midi.song_structure import SECTION_TYPES, apply_song_structure, parse_song_structure, section_configs_from_song_structure
 from auto_midi.settings import settings
+from auto_midi.style_catalog import catalog_snapshot, groove_owner
 from auto_midi.time_signature import SUPPORTED_TIME_SIGNATURES, parse_time_signature
 from auto_midi.text_parser import parse_text
 from auto_midi.wav_preview import render_preview_wav
@@ -45,8 +52,23 @@ DEFAULT_TEST_LYRICS = _build_default_test_lyrics()
 
 
 def _groove_dropdown_update(style: str):
-    options = grooves_for_style(style)
+    options = grooves_for_style(style, include_free=True)
     return gr.Dropdown(choices=list(options), value=default_groove(style))
+
+
+def _catalog_controls_update(previous_hash: str, style: str, groove: str):
+    snapshot = catalog_snapshot()
+    if previous_hash == snapshot.content_hash:
+        return previous_hash, gr.skip(), gr.skip()
+    styles = sorted(snapshot.styles)
+    selected_style = style if style in snapshot.styles else "free"
+    grooves = grooves_for_style(selected_style, include_free=True)
+    selected_groove = groove if groove in grooves else default_groove(selected_style)
+    return (
+        snapshot.content_hash,
+        gr.Dropdown(choices=styles, value=selected_style),
+        gr.Dropdown(choices=list(grooves), value=selected_groove),
+    )
 
 
 def _execution_config_payload(configs):
@@ -233,8 +255,12 @@ def generate_execution_form(
                 raise gr.Error("Execution Agent is not configured")
             try:
                 preset_value = preset if preset in PRESET_BOUNDS else settings.preset
-                groove_value = groove if groove in grooves_for_style(preset_value) else default_groove(preset_value)
-                configs = execution_agent.generate_from_plan_payload(
+                groove_value = (
+                    "free"
+                    if groove == "free"
+                    else groove if groove in grooves_for_style(preset_value) else default_groove(preset_value)
+                )
+                routing, configs = execution_agent.generate_execution_plan(
                     raw_plan,
                     raw_seed,
                     preset=preset_value,
@@ -242,7 +268,7 @@ def generate_execution_form(
                 )
             except (LLMError, ValueError) as exc:
                 raise gr.Error(f"Execution Agent failed: {exc}") from exc
-            return json.dumps(execution_config_payload(configs), ensure_ascii=False, indent=2)
+            return json.dumps(execution_config_payload(configs, routing), ensure_ascii=False, indent=2)
 
     structure = _structure_from_inputs(None, structure_json)
     if not (feel_json or "").strip():
@@ -295,6 +321,36 @@ def _structure_from_execution_config(configs, bpm: int, time_signature: str):
     )
 
 
+def _resolve_routing_controls(
+    section_configs,
+    execution_routing,
+    ui_preset: str,
+    ui_groove: str,
+    use_execution_routing: bool,
+):
+    warning = None
+    if use_execution_routing and execution_routing is not None:
+        return (
+            execution_routing.style,
+            execution_routing.global_groove,
+            section_configs,
+            "execution_config",
+            warning,
+        )
+    if use_execution_routing and execution_routing is None:
+        warning = "Execution config has no routing metadata; UI routing was used"
+    preset = ui_preset if ui_preset != "free" else execution_routing.style if execution_routing else "free"
+    if ui_groove != "free" and groove_owner(ui_groove) == preset:
+        groove = ui_groove
+        section_configs = tuple(replace(config, groove=groove) for config in section_configs)
+    elif execution_routing is not None and execution_routing.style == preset:
+        groove = execution_routing.global_groove
+    else:
+        groove = default_groove(preset)
+        section_configs = tuple(replace(config, groove=groove) for config in section_configs)
+    return preset, groove, section_configs, "ui", warning
+
+
 def render_song(
     lyrics: str | None,
     song_structure_json: str | None,
@@ -311,13 +367,19 @@ def render_song(
     sample_kit: str | None,
     feel_override_json: str | None = None,
     execution_override_json: str | None = None,
+    use_execution_routing: bool = False,
 ):
     standalone_configs = None
     standalone_structure = None
+    execution_routing = None
     if (execution_override_json or "").strip():
         try:
             execution_payload = json.loads(execution_override_json)
             standalone_configs = parse_section_config(execution_payload)
+            if isinstance(execution_payload, dict) and "routing" in execution_payload:
+                execution_routing, standalone_configs = validate_execution_routing(
+                    execution_payload, standalone_configs, None, None
+                )
             standalone_bpm = int(bpm if bpm is not None else settings.bpm)
             standalone_structure = _structure_from_execution_config(
                 standalone_configs,
@@ -405,8 +467,14 @@ def render_song(
         raise gr.Error("BPM 必须在 30 到 260 之间。")
     if any(value < 0 or value > 100 for value in (complexity_value, intensity_value, fill_value, randomness_value)):
         raise gr.Error("复杂度、强度、Fill 和随机性必须在 0 到 100 之间。")
-    preset_value = preset if preset in PRESET_BOUNDS else settings.preset
-    groove_value = groove if groove in grooves_for_style(preset_value) else default_groove(preset_value)
+    ui_preset_value = preset if preset in PRESET_BOUNDS else settings.preset
+    ui_groove_value = str(groove or "free")
+    preset_value = ui_preset_value
+    groove_value = (
+        ui_groove_value
+        if ui_groove_value != "free" and groove_owner(ui_groove_value) == preset_value
+        else default_groove(preset_value)
+    )
     summary_warning = None
     if structure:
         if (execution_override_json or "").strip() or (feel_override_json or "").strip():
@@ -465,6 +533,16 @@ def render_song(
                     f"但歌曲结构包含 {len(structure.sections)} 段"
                 )
             agent_execution = section_configs
+
+    preset_value, groove_value, section_configs, routing_authority, routing_warning = _resolve_routing_controls(
+        section_configs,
+        execution_routing,
+        ui_preset_value,
+        ui_groove_value,
+        bool(use_execution_routing),
+    )
+    if routing_warning:
+        summary_warning = (f"{summary_warning}; " if summary_warning else "") + routing_warning
     try:
         signature = parse_time_signature(structure.time_signature if structure else time_signature)
     except ValueError as exc:
@@ -521,6 +599,7 @@ def render_song(
         "events": len(events),
         "preset": dna.style,
         "groove": groove_value,
+        "routing_authority": routing_authority,
         "time_signature": str(signature),
         "seed": seed_value,
         "midi": str(midi_path),
@@ -529,6 +608,10 @@ def render_song(
         summary["song_structure"] = structure.title
         summary["key"] = structure.key
         summary["agent"] = agent_feels[0].source if agent_feels else "manual"
+    if execution_routing is not None:
+        summary["routed_style"] = execution_routing.style
+        summary["routed_global_groove"] = execution_routing.global_groove
+        summary["catalog_version"] = execution_routing.catalog_version
     if summary_warning:
         summary["warning"] = summary_warning
     if not kit_status.ready:
@@ -769,8 +852,12 @@ def build_demo() -> gr.Blocks:
                     )
                     groove = gr.Dropdown(
                         label="节奏型",
-                        choices=grooves_for_style(settings.preset),
+                        choices=grooves_for_style(settings.preset, include_free=True),
                         value=settings.groove or default_groove(settings.preset),
+                    )
+                    use_execution_routing = gr.Checkbox(
+                        label="使用执行配置中的风格与节奏型",
+                        value=False,
                     )
                 with gr.Row():
                     time_signature = gr.Dropdown(
@@ -787,6 +874,9 @@ def build_demo() -> gr.Blocks:
                     fill = gr.Slider(0, 100, value=settings.fill, step=1, label="整体 Fill")
                     randomness = gr.Slider(0, 100, value=settings.randomness, step=1, label="整体随机性")
                 sample_kit = gr.Textbox(label="样本包目录", value=str(DEFAULT_KIT))
+
+        catalog_hash = gr.State(value=catalog_snapshot().content_hash)
+        catalog_timer = gr.Timer(value=5.0)
 
         with gr.Row():
             audio = gr.Audio(label="WAV 预览", type="filepath")
@@ -868,11 +958,18 @@ def build_demo() -> gr.Blocks:
                 sample_kit,
                 feel_output,
                 execution_output,
+                use_execution_routing,
             ],
             outputs=[audio, midi, summary, feel_output, execution_output],
             concurrency_limit=1,
         )
         preset.change(fn=_groove_dropdown_update, inputs=preset, outputs=groove)
+        catalog_timer.tick(
+            fn=_catalog_controls_update,
+            inputs=[catalog_hash, preset, groove],
+            outputs=[catalog_hash, preset, groove],
+            concurrency_limit=1,
+        )
     return demo
 
 

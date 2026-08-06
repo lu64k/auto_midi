@@ -1,182 +1,53 @@
-"""Named groove templates used to keep style identity stable."""
+"""Dynamic style/groove views backed by the hot-reloadable catalog."""
 
 from __future__ import annotations
 
-
-GROOVES_BY_STYLE = {
-    "free": ("free",),
-    "boom_bap": ("boom_bap",),
-    "hiphop": ("hiphop",),
-    "trap": ("trap",),
-    "minimal": ("minimal",),
-    "rock": (
-        "classic_rock",
-        "driving_rock",
-        "half_time_rock",
-        "sparse_rock",
-        "shuffle_rock",
-        "blues_rock",
-        "punk_rock",
-        "indie_rock",
-    ),
-    "hard_rock": ("hard_rock", "arena_rock", "double_kick_rock", "half_time_hard_rock"),
-    "dream_pop": ("sparse_dream", "washed_8th"),
-    "post_rock": ("post_rock_build", "post_rock_peak", "post_rock_release"),
-    "psychedelic": ("psych_shuffle", "psych_groove", "motorik_rock"),
-    "jazz": ("swing_ride", "jazz_waltz"),
-    "blues": ("blues_shuffle", "slow_blues"),
-    "rnb": ("rnb_soul", "rnb_modern"),
-    "country": ("country_train", "two_beat_country"),
-    "funk": ("classic_funk", "syncopated_funk"),
-    "reggae": ("one_drop", "rockers", "ska_offbeat"),
-}
-
-DEFAULT_GROOVE_BY_STYLE = {
-    "free": "free",
-    "boom_bap": "boom_bap",
-    "hiphop": "hiphop",
-    "trap": "trap",
-    "minimal": "minimal",
-    "rock": "classic_rock",
-    "hard_rock": "hard_rock",
-    "dream_pop": "sparse_dream",
-    "post_rock": "post_rock_build",
-    "psychedelic": "psych_groove",
-    "jazz": "swing_ride",
-    "blues": "blues_shuffle",
-    "rnb": "rnb_soul",
-    "country": "country_train",
-    "funk": "classic_funk",
-    "reggae": "one_drop",
-}
-
-# The anchor is the skeleton; density, fills, and text accents are layered on top.
-GROOVE_ANCHORS = {
-    "free": "floating",
-    "boom_bap": "strong_one",
-    "hiphop": "floating",
-    "trap": "floating",
-    "minimal": "strong_one",
-    "classic_rock": "strong_one",
-    "driving_rock": "four_on_floor",
-    "half_time_rock": "strong_one",
-    "sparse_rock": "strong_one",
-    "shuffle_rock": "strong_one",
-    "blues_rock": "strong_one",
-    "punk_rock": "strong_one",
-    "indie_rock": "strong_one",
-    "hard_rock": "strong_one",
-    "arena_rock": "strong_one",
-    "double_kick_rock": "strong_one",
-    "half_time_hard_rock": "strong_one",
-    "sparse_dream": "strong_one",
-    "washed_8th": "strong_one",
-    "post_rock_build": "strong_one",
-    "post_rock_peak": "strong_one",
-    "post_rock_release": "strong_one",
-    "psych_shuffle": "strong_one",
-    "psych_groove": "strong_one",
-    "motorik_rock": "four_on_floor",
-    "swing_ride": "floating",
-    "jazz_waltz": "floating",
-    "blues_shuffle": "strong_one",
-    "slow_blues": "strong_one",
-    "rnb_soul": "offbeat_push",
-    "rnb_modern": "floating",
-    "country_train": "strong_one",
-    "two_beat_country": "strong_one",
-    "classic_funk": "offbeat_push",
-    "syncopated_funk": "offbeat_push",
-    "one_drop": "one_drop",
-    "rockers": "strong_one",
-    "ska_offbeat": "offbeat_push",
-}
-
-GROOVE_PULSES = {
-    "classic_rock": 8,
-    "driving_rock": 8,
-    "half_time_rock": 8,
-    "sparse_rock": 8,
-    "shuffle_rock": 8,
-    "blues_rock": 8,
-    "punk_rock": 16,
-    "indie_rock": 8,
-    "hard_rock": 8,
-    "arena_rock": 8,
-    "double_kick_rock": 16,
-    "half_time_hard_rock": 8,
-    "sparse_dream": 8,
-    "washed_8th": 8,
-    "post_rock_build": 8,
-    "post_rock_peak": 16,
-    "post_rock_release": 8,
-    "psych_shuffle": 8,
-    "psych_groove": 8,
-    "motorik_rock": 8,
-    "boom_bap": 8,
-    "hiphop": 8,
-    "trap": 16,
-    "minimal": 8,
-    "swing_ride": 8,
-    "jazz_waltz": 8,
-    "blues_shuffle": 8,
-    "slow_blues": 8,
-    "rnb_soul": 16,
-    "rnb_modern": 16,
-    "country_train": 8,
-    "two_beat_country": 8,
-    "classic_funk": 16,
-    "syncopated_funk": 16,
-    "one_drop": 8,
-    "rockers": 8,
-    "ska_offbeat": 8,
-}
-
-GROOVE_PROFILES = {
-    "free": {"skeleton_strength": 0.35, "backbeat_variation": 0.65, "ornament_amount": 0.70},
-    "boom_bap": {"skeleton_strength": 0.80, "backbeat_variation": 0.20, "ornament_amount": 0.35},
-    "hiphop": {"skeleton_strength": 0.65, "backbeat_variation": 0.40, "ornament_amount": 0.55},
-    "trap": {"skeleton_strength": 0.55, "backbeat_variation": 0.45, "ornament_amount": 0.70},
-    "minimal": {"skeleton_strength": 0.85, "backbeat_variation": 0.15, "ornament_amount": 0.15},
-    "classic_rock": {"skeleton_strength": 0.85, "backbeat_variation": 0.15, "ornament_amount": 0.30},
-    "driving_rock": {"skeleton_strength": 0.90, "backbeat_variation": 0.10, "ornament_amount": 0.35},
-    "half_time_rock": {"skeleton_strength": 0.80, "backbeat_variation": 0.20, "ornament_amount": 0.25},
-    "sparse_rock": {"skeleton_strength": 0.50, "backbeat_variation": 0.40, "ornament_amount": 0.08},
-    "shuffle_rock": {"skeleton_strength": 0.82, "backbeat_variation": 0.20, "ornament_amount": 0.40},
-    "blues_rock": {"skeleton_strength": 0.80, "backbeat_variation": 0.22, "ornament_amount": 0.45},
-    "punk_rock": {"skeleton_strength": 0.88, "backbeat_variation": 0.12, "ornament_amount": 0.50},
-    "indie_rock": {"skeleton_strength": 0.68, "backbeat_variation": 0.38, "ornament_amount": 0.42},
-    "hard_rock": {"skeleton_strength": 0.90, "backbeat_variation": 0.12, "ornament_amount": 0.45},
-    "arena_rock": {"skeleton_strength": 0.92, "backbeat_variation": 0.10, "ornament_amount": 0.40},
-    "double_kick_rock": {"skeleton_strength": 0.88, "backbeat_variation": 0.15, "ornament_amount": 0.55},
-    "half_time_hard_rock": {"skeleton_strength": 0.82, "backbeat_variation": 0.18, "ornament_amount": 0.40},
-    "sparse_dream": {"skeleton_strength": 0.55, "backbeat_variation": 0.35, "ornament_amount": 0.15},
-    "washed_8th": {"skeleton_strength": 0.65, "backbeat_variation": 0.30, "ornament_amount": 0.20},
-    "post_rock_build": {"skeleton_strength": 0.60, "backbeat_variation": 0.35, "ornament_amount": 0.30},
-    "post_rock_peak": {"skeleton_strength": 0.88, "backbeat_variation": 0.15, "ornament_amount": 0.55},
-    "post_rock_release": {"skeleton_strength": 0.45, "backbeat_variation": 0.45, "ornament_amount": 0.10},
-    "psych_shuffle": {"skeleton_strength": 0.75, "backbeat_variation": 0.25, "ornament_amount": 0.55},
-    "psych_groove": {"skeleton_strength": 0.65, "backbeat_variation": 0.35, "ornament_amount": 0.65},
-    "motorik_rock": {"skeleton_strength": 0.90, "backbeat_variation": 0.10, "ornament_amount": 0.30},
-    "swing_ride": {"skeleton_strength": 0.70, "backbeat_variation": 0.45, "ornament_amount": 0.60},
-    "jazz_waltz": {"skeleton_strength": 0.65, "backbeat_variation": 0.50, "ornament_amount": 0.60},
-    "blues_shuffle": {"skeleton_strength": 0.85, "backbeat_variation": 0.20, "ornament_amount": 0.35},
-    "slow_blues": {"skeleton_strength": 0.75, "backbeat_variation": 0.30, "ornament_amount": 0.25},
-    "rnb_soul": {"skeleton_strength": 0.70, "backbeat_variation": 0.30, "ornament_amount": 0.65},
-    "rnb_modern": {"skeleton_strength": 0.55, "backbeat_variation": 0.45, "ornament_amount": 0.80},
-    "country_train": {"skeleton_strength": 0.85, "backbeat_variation": 0.20, "ornament_amount": 0.30},
-    "two_beat_country": {"skeleton_strength": 0.80, "backbeat_variation": 0.25, "ornament_amount": 0.25},
-    "classic_funk": {"skeleton_strength": 0.65, "backbeat_variation": 0.35, "ornament_amount": 0.70},
-    "syncopated_funk": {"skeleton_strength": 0.50, "backbeat_variation": 0.50, "ornament_amount": 0.85},
-    "one_drop": {"skeleton_strength": 0.90, "backbeat_variation": 0.10, "ornament_amount": 0.25},
-    "rockers": {"skeleton_strength": 0.80, "backbeat_variation": 0.20, "ornament_amount": 0.40},
-    "ska_offbeat": {"skeleton_strength": 0.70, "backbeat_variation": 0.30, "ornament_amount": 0.60},
-}
+from .style_catalog import DynamicCatalogMapping, catalog_snapshot, groove_data
 
 
-def grooves_for_style(style: str) -> tuple[str, ...]:
-    return GROOVES_BY_STYLE.get(style, ("free",))
+GROOVES_BY_STYLE = DynamicCatalogMapping(
+    lambda snapshot: {name: tuple(style["grooves"]) for name, style in snapshot.styles.items()}
+)
+DEFAULT_GROOVE_BY_STYLE = DynamicCatalogMapping(
+    lambda snapshot: {name: style["default_groove"] for name, style in snapshot.styles.items()}
+)
+GROOVE_ANCHORS = DynamicCatalogMapping(
+    lambda snapshot: {
+        groove_name: groove["anchor"]
+        for style in snapshot.styles.values()
+        for groove_name, groove in style["grooves"].items()
+    }
+)
+GROOVE_PULSES = DynamicCatalogMapping(
+    lambda snapshot: {
+        groove_name: groove["pulse"]
+        for style in snapshot.styles.values()
+        for groove_name, groove in style["grooves"].items()
+        if groove.get("pulse") is not None
+    }
+)
+GROOVE_PROFILES = DynamicCatalogMapping(
+    lambda snapshot: {
+        groove_name: groove["profile"]
+        for style in snapshot.styles.values()
+        for groove_name, groove in style["grooves"].items()
+    }
+)
+
+
+def grooves_for_style(style: str, include_free: bool = False) -> tuple[str, ...]:
+    grooves = tuple(catalog_snapshot().styles.get(style, {}).get("grooves", {}))
+    if not grooves:
+        return ("free",)
+    if include_free and "free" not in grooves:
+        return ("free", *grooves)
+    return grooves
 
 
 def default_groove(style: str) -> str:
-    return DEFAULT_GROOVE_BY_STYLE.get(style, "free")
+    return str(catalog_snapshot().styles.get(style, {}).get("default_groove", "free"))
+
+
+def groove_identity(groove: str) -> str:
+    data = groove_data(groove)
+    return str(data.get("identity", groove)) if data else groove

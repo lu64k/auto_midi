@@ -1,0 +1,19 @@
+{
+  "examples": [
+    {
+      "case": "energy change only",
+      "input": "quiet rock verse, loud rock chorus",
+      "decision": "keep one groove; change intensity and density"
+    },
+    {
+      "case": "explicit skeleton change",
+      "input": "straight rock song; bridge explicitly drops into half-time",
+      "decision": "use the global straight groove with one half-time bridge override"
+    },
+    {
+      "case": "locked groove",
+      "input": "UI style rock and UI groove classic_rock",
+      "decision": "use classic_rock for every section"
+    }
+  ]
+}

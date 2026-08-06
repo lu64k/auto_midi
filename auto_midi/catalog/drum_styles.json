@@ -1,0 +1,2021 @@
+{
+  "version": 1,
+  "styles": {
+    "free": {
+      "identity": "No fixed genre; route from the complete song brief.",
+      "default_groove": "free",
+      "dna_bounds": {},
+      "grooves": {
+        "free": {
+          "identity": "No fixed skeleton; use only while routing is unresolved.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.35,
+            "backbeat_variation": 0.65,
+            "ornament_amount": 0.7
+          },
+          "anchor": "floating",
+          "pulse": null,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        }
+      }
+    },
+    "boom_bap": {
+      "identity": "Sample-era hip-hop pocket with a firm backbeat.",
+      "default_groove": "boom_bap",
+      "dna_bounds": {
+        "swing": [
+          0.08,
+          0.22
+        ],
+        "syncopation": [
+          0.25,
+          0.6
+        ],
+        "high_density": [
+          0.35,
+          0.7
+        ],
+        "mid_bias": [
+          0.6,
+          0.95
+        ],
+        "backbeat_weight": [
+          0.7,
+          1.0
+        ],
+        "ghost_note_bias": [
+          0.25,
+          0.65
+        ],
+        "hat_openness": [
+          0.02,
+          0.18
+        ],
+        "kick_snare_lock": [
+          0.55,
+          0.9
+        ],
+        "phrase_memory": [
+          0.55,
+          0.9
+        ],
+        "fill_vocabulary": [
+          "snare_roll",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "pocket",
+          "front_heavy"
+        ],
+        "groove_anchor": [
+          "strong_one",
+          "floating",
+          "offbeat_push"
+        ]
+      },
+      "grooves": {
+        "boom_bap": {
+          "identity": "Classic boom-bap kick/snare pocket.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.8,
+            "backbeat_variation": 0.2,
+            "ornament_amount": 0.35
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        }
+      }
+    },
+    "hiphop": {
+      "identity": "General hip-hop pocket with flexible syncopation.",
+      "default_groove": "hiphop",
+      "dna_bounds": {
+        "swing": [
+          0.06,
+          0.2
+        ],
+        "syncopation": [
+          0.25,
+          0.65
+        ],
+        "high_density": [
+          0.25,
+          0.7
+        ],
+        "backbeat_weight": [
+          0.65,
+          1.0
+        ],
+        "ghost_note_bias": [
+          0.25,
+          0.7
+        ],
+        "hat_openness": [
+          0.02,
+          0.2
+        ],
+        "kick_snare_lock": [
+          0.45,
+          0.85
+        ],
+        "phrase_memory": [
+          0.55,
+          0.9
+        ],
+        "fill_vocabulary": [
+          "snare_roll",
+          "mixed",
+          "silence"
+        ],
+        "dynamic_shape": [
+          "pocket",
+          "flat",
+          "front_heavy"
+        ],
+        "groove_anchor": [
+          "strong_one",
+          "floating",
+          "offbeat_push"
+        ]
+      },
+      "grooves": {
+        "hiphop": {
+          "identity": "Flexible general hip-hop groove.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.65,
+            "backbeat_variation": 0.4,
+            "ornament_amount": 0.55
+          },
+          "anchor": "floating",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        }
+      }
+    },
+    "trap": {
+      "identity": "Modern trap subdivision and syncopated kick language.",
+      "default_groove": "trap",
+      "dna_bounds": {
+        "pulse": [
+          16,
+          16
+        ],
+        "swing": [
+          0.0,
+          0.08
+        ],
+        "syncopation": [
+          0.45,
+          0.9
+        ],
+        "high_density": [
+          0.55,
+          1.0
+        ],
+        "low_bias": [
+          0.55,
+          0.95
+        ],
+        "backbeat_weight": [
+          0.45,
+          0.8
+        ],
+        "ghost_note_bias": [
+          0.05,
+          0.35
+        ],
+        "hat_openness": [
+          0.05,
+          0.25
+        ],
+        "kick_snare_lock": [
+          0.25,
+          0.65
+        ],
+        "phrase_memory": [
+          0.35,
+          0.75
+        ],
+        "fill_vocabulary": [
+          "hat_roll",
+          "snare_roll",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "flat",
+          "back_heavy",
+          "crescendo"
+        ],
+        "groove_anchor": [
+          "floating",
+          "strong_one",
+          "offbeat_push"
+        ]
+      },
+      "grooves": {
+        "trap": {
+          "identity": "Trap kick and sixteenth-note hat framework.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.55,
+            "backbeat_variation": 0.45,
+            "ornament_amount": 0.7
+          },
+          "anchor": "floating",
+          "pulse": 16,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        }
+      }
+    },
+    "minimal": {
+      "identity": "Restrained, low-ornament drum arrangement.",
+      "default_groove": "minimal",
+      "dna_bounds": {
+        "syncopation": [
+          0.05,
+          0.35
+        ],
+        "high_density": [
+          0.1,
+          0.45
+        ],
+        "mutation": [
+          0.05,
+          0.3
+        ],
+        "backbeat_weight": [
+          0.25,
+          0.7
+        ],
+        "ghost_note_bias": [
+          0.0,
+          0.25
+        ],
+        "hat_openness": [
+          0.0,
+          0.12
+        ],
+        "kick_snare_lock": [
+          0.25,
+          0.75
+        ],
+        "phrase_memory": [
+          0.7,
+          1.0
+        ],
+        "fill_vocabulary": [
+          "silence",
+          "snare_roll"
+        ],
+        "dynamic_shape": [
+          "flat",
+          "decrescendo"
+        ],
+        "groove_anchor": [
+          "floating",
+          "strong_one"
+        ]
+      },
+      "grooves": {
+        "minimal": {
+          "identity": "Minimal pulse with restrained ornament.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.85,
+            "backbeat_variation": 0.15,
+            "ornament_amount": 0.15
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        }
+      }
+    },
+    "rock": {
+      "identity": "Straight or shuffled rock built around a recognizable backbeat.",
+      "default_groove": "classic_rock",
+      "dna_bounds": {
+        "pulse": [
+          8,
+          16
+        ],
+        "swing": [
+          0.0,
+          0.05
+        ],
+        "syncopation": [
+          0.1,
+          0.35
+        ],
+        "low_bias": [
+          0.65,
+          1.0
+        ],
+        "mid_bias": [
+          0.7,
+          1.0
+        ],
+        "backbeat_weight": [
+          0.8,
+          1.0
+        ],
+        "ghost_note_bias": [
+          0.05,
+          0.35
+        ],
+        "hat_openness": [
+          0.08,
+          0.35
+        ],
+        "kick_snare_lock": [
+          0.7,
+          1.0
+        ],
+        "phrase_memory": [
+          0.45,
+          0.8
+        ],
+        "fill_vocabulary": [
+          "tom_run",
+          "snare_roll",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "front_heavy",
+          "crescendo",
+          "flat"
+        ],
+        "groove_anchor": [
+          "strong_one"
+        ]
+      },
+      "grooves": {
+        "classic_rock": {
+          "identity": "General straight rock with kick support and snare on 2 and 4.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.85,
+            "backbeat_variation": 0.15,
+            "ornament_amount": 0.3
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              8
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "driving_rock": {
+          "identity": "Four-on-the-floor rock drive; use only when sustained propulsion is explicit.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.9,
+            "backbeat_variation": 0.1,
+            "ornament_amount": 0.35
+          },
+          "anchor": "four_on_floor",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              4,
+              8,
+              12
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "half_time_rock": {
+          "identity": "Half-time rock backbeat; use only when half-time weight is explicit.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.8,
+            "backbeat_variation": 0.2,
+            "ornament_amount": 0.25
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              8
+            ],
+            "snare_steps": [
+              8
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "sparse_rock": {
+          "identity": "Stable but reduced rock skeleton for spacious arrangements.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.5,
+            "backbeat_variation": 0.4,
+            "ornament_amount": 0.08
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              8
+            ],
+            "snare_steps": [
+              12
+            ],
+            "hat_steps": [
+              2,
+              6,
+              10,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "shuffle_rock": {
+          "identity": "Triplet-inflected rock shuffle.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.82,
+            "backbeat_variation": 0.2,
+            "ornament_amount": 0.4
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              8
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.3
+          }
+        },
+        "blues_rock": {
+          "identity": "Blues-derived shuffled rock kick movement.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.8,
+            "backbeat_variation": 0.22,
+            "ornament_amount": 0.45
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              6,
+              8,
+              10
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.3
+          }
+        },
+        "punk_rock": {
+          "identity": "Dense fast subdivision and driving punk attack.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.88,
+            "backbeat_variation": 0.12,
+            "ornament_amount": 0.5
+          },
+          "anchor": "strong_one",
+          "pulse": 16,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "indie_rock": {
+          "identity": "Angular, syncopated indie-rock skeleton.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.68,
+            "backbeat_variation": 0.38,
+            "ornament_amount": 0.42
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              7,
+              8,
+              11
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              6,
+              8,
+              10,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        }
+      }
+    },
+    "hard_rock": {
+      "identity": "Heavier rock with stronger kick and snare weight.",
+      "default_groove": "hard_rock",
+      "dna_bounds": {
+        "pulse": [
+          8,
+          8
+        ],
+        "swing": [
+          0.0,
+          0.08
+        ],
+        "syncopation": [
+          0.1,
+          0.4
+        ],
+        "low_bias": [
+          0.7,
+          1.0
+        ],
+        "mid_bias": [
+          0.75,
+          1.0
+        ],
+        "high_density": [
+          0.5,
+          0.9
+        ],
+        "backbeat_weight": [
+          0.85,
+          1.0
+        ],
+        "ghost_note_bias": [
+          0.05,
+          0.3
+        ],
+        "hat_openness": [
+          0.08,
+          0.3
+        ],
+        "kick_snare_lock": [
+          0.75,
+          1.0
+        ],
+        "phrase_memory": [
+          0.45,
+          0.8
+        ],
+        "fill_vocabulary": [
+          "tom_run",
+          "snare_roll",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "front_heavy",
+          "crescendo",
+          "flat"
+        ],
+        "groove_anchor": [
+          "strong_one"
+        ]
+      },
+      "grooves": {
+        "hard_rock": {
+          "identity": "Heavy straight rock with an active kick foundation.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.9,
+            "backbeat_variation": 0.12,
+            "ornament_amount": 0.45
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              4,
+              8,
+              10,
+              12
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "arena_rock": {
+          "identity": "Broad, simple rock pulse designed for large accents.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.92,
+            "backbeat_variation": 0.1,
+            "ornament_amount": 0.4
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              8
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "double_kick_rock": {
+          "identity": "Continuous double-kick-oriented hard rock.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.88,
+            "backbeat_variation": 0.15,
+            "ornament_amount": 0.55
+          },
+          "anchor": "strong_one",
+          "pulse": 16,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "half_time_hard_rock": {
+          "identity": "Heavy half-time hard-rock skeleton.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.82,
+            "backbeat_variation": 0.18,
+            "ornament_amount": 0.4
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              8,
+              10
+            ],
+            "snare_steps": [
+              8
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        }
+      }
+    },
+    "dream_pop": {
+      "identity": "Soft, washed, spacious pop-rock pulse.",
+      "default_groove": "sparse_dream",
+      "dna_bounds": {
+        "pulse": [
+          8,
+          8
+        ],
+        "swing": [
+          0.0,
+          0.12
+        ],
+        "syncopation": [
+          0.05,
+          0.35
+        ],
+        "low_bias": [
+          0.15,
+          0.5
+        ],
+        "mid_bias": [
+          0.15,
+          0.55
+        ],
+        "high_density": [
+          0.1,
+          0.45
+        ],
+        "backbeat_weight": [
+          0.25,
+          0.7
+        ],
+        "ghost_note_bias": [
+          0.0,
+          0.25
+        ],
+        "hat_openness": [
+          0.1,
+          0.4
+        ],
+        "kick_snare_lock": [
+          0.2,
+          0.65
+        ],
+        "phrase_memory": [
+          0.65,
+          0.95
+        ],
+        "fill_vocabulary": [
+          "silence",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "pocket",
+          "decrescendo",
+          "flat"
+        ],
+        "groove_anchor": [
+          "strong_one",
+          "floating"
+        ]
+      },
+      "grooves": {
+        "sparse_dream": {
+          "identity": "Sparse dream-pop pulse with large spaces.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.55,
+            "backbeat_variation": 0.35,
+            "ornament_amount": 0.15
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0
+            ],
+            "snare_steps": [
+              12
+            ],
+            "hat_steps": [
+              0,
+              6,
+              10
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "washed_8th": {
+          "identity": "Even washed quarter/eighth-note dream-pop pulse.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.65,
+            "backbeat_variation": 0.3,
+            "ornament_amount": 0.2
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              8
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              4,
+              8,
+              12
+            ],
+            "swing_ratio": 0.0
+          }
+        }
+      }
+    },
+    "post_rock": {
+      "identity": "Long-form rock dynamics with build, peak, and release.",
+      "default_groove": "post_rock_build",
+      "dna_bounds": {
+        "pulse": [
+          8,
+          16
+        ],
+        "swing": [
+          0.0,
+          0.08
+        ],
+        "syncopation": [
+          0.15,
+          0.55
+        ],
+        "low_bias": [
+          0.35,
+          0.85
+        ],
+        "mid_bias": [
+          0.45,
+          0.9
+        ],
+        "high_density": [
+          0.25,
+          0.9
+        ],
+        "backbeat_weight": [
+          0.45,
+          0.95
+        ],
+        "ghost_note_bias": [
+          0.05,
+          0.4
+        ],
+        "hat_openness": [
+          0.05,
+          0.35
+        ],
+        "kick_snare_lock": [
+          0.35,
+          0.85
+        ],
+        "phrase_memory": [
+          0.35,
+          0.8
+        ],
+        "fill_vocabulary": [
+          "tom_run",
+          "snare_roll",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "crescendo",
+          "decrescendo",
+          "flat"
+        ],
+        "groove_anchor": [
+          "strong_one",
+          "floating"
+        ]
+      },
+      "grooves": {
+        "post_rock_build": {
+          "identity": "Steady post-rock build skeleton; dynamics should carry the growth.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.6,
+            "backbeat_variation": 0.35,
+            "ornament_amount": 0.3
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              8
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "post_rock_peak": {
+          "identity": "Dense post-rock peak subdivision.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.88,
+            "backbeat_variation": 0.15,
+            "ornament_amount": 0.55
+          },
+          "anchor": "strong_one",
+          "pulse": 16,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "post_rock_release": {
+          "identity": "Reduced post-rock release skeleton.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.45,
+            "backbeat_variation": 0.45,
+            "ornament_amount": 0.1
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0
+            ],
+            "snare_steps": [
+              12
+            ],
+            "hat_steps": [
+              0,
+              8
+            ],
+            "swing_ratio": 0.0
+          }
+        }
+      }
+    },
+    "psychedelic": {
+      "identity": "Repetitive or shuffled rock with fluid syncopation.",
+      "default_groove": "psych_groove",
+      "dna_bounds": {
+        "pulse": [
+          8,
+          16
+        ],
+        "swing": [
+          0.08,
+          0.28
+        ],
+        "syncopation": [
+          0.35,
+          0.8
+        ],
+        "low_bias": [
+          0.35,
+          0.8
+        ],
+        "mid_bias": [
+          0.35,
+          0.8
+        ],
+        "high_density": [
+          0.3,
+          0.8
+        ],
+        "backbeat_weight": [
+          0.45,
+          0.85
+        ],
+        "ghost_note_bias": [
+          0.2,
+          0.65
+        ],
+        "hat_openness": [
+          0.1,
+          0.5
+        ],
+        "kick_snare_lock": [
+          0.25,
+          0.75
+        ],
+        "phrase_memory": [
+          0.7,
+          0.98
+        ],
+        "fill_vocabulary": [
+          "tom_run",
+          "hat_roll",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "pocket",
+          "crescendo",
+          "flat"
+        ],
+        "groove_anchor": [
+          "strong_one",
+          "floating",
+          "offbeat_push"
+        ]
+      },
+      "grooves": {
+        "psych_shuffle": {
+          "identity": "Psychedelic shuffle with rolling triplet motion.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.75,
+            "backbeat_variation": 0.25,
+            "ornament_amount": 0.55
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              6,
+              8,
+              10
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.3
+          }
+        },
+        "psych_groove": {
+          "identity": "Syncopated psychedelic rock loop.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.65,
+            "backbeat_variation": 0.35,
+            "ornament_amount": 0.65
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              7,
+              8,
+              11
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              6,
+              8,
+              10,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        },
+        "motorik_rock": {
+          "identity": "Repetitive motorik quarter-note drive.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.9,
+            "backbeat_variation": 0.1,
+            "ornament_amount": 0.3
+          },
+          "anchor": "four_on_floor",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": {
+            "kick_steps": [
+              0,
+              4,
+              8,
+              12
+            ],
+            "snare_steps": [
+              4,
+              12
+            ],
+            "hat_steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14
+            ],
+            "swing_ratio": 0.0
+          }
+        }
+      }
+    },
+    "jazz": {
+      "identity": "Swinging ride-led jazz interaction.",
+      "default_groove": "swing_ride",
+      "dna_bounds": {
+        "pulse": [
+          8,
+          16
+        ],
+        "swing": [
+          0.12,
+          0.32
+        ],
+        "syncopation": [
+          0.55,
+          1.0
+        ],
+        "low_bias": [
+          0.15,
+          0.55
+        ],
+        "mid_bias": [
+          0.35,
+          0.75
+        ],
+        "high_density": [
+          0.55,
+          0.95
+        ],
+        "backbeat_weight": [
+          0.1,
+          0.55
+        ],
+        "ghost_note_bias": [
+          0.55,
+          1.0
+        ],
+        "hat_openness": [
+          0.18,
+          0.55
+        ],
+        "kick_snare_lock": [
+          0.05,
+          0.4
+        ],
+        "phrase_memory": [
+          0.25,
+          0.65
+        ],
+        "fill_vocabulary": [
+          "snare_roll",
+          "silence",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "pocket",
+          "crescendo",
+          "decrescendo"
+        ],
+        "groove_anchor": [
+          "floating",
+          "offbeat_push"
+        ]
+      },
+      "grooves": {
+        "swing_ride": {
+          "identity": "Ride-led swing pattern.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.7,
+            "backbeat_variation": 0.45,
+            "ornament_amount": 0.6
+          },
+          "anchor": "floating",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        },
+        "jazz_waltz": {
+          "identity": "Three-beat jazz-waltz ride language.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.65,
+            "backbeat_variation": 0.5,
+            "ornament_amount": 0.6
+          },
+          "anchor": "floating",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        }
+      }
+    },
+    "blues": {
+      "identity": "Shuffle or slow blues backbeat.",
+      "default_groove": "blues_shuffle",
+      "dna_bounds": {
+        "pulse": [
+          8,
+          8
+        ],
+        "swing": [
+          0.18,
+          0.35
+        ],
+        "syncopation": [
+          0.15,
+          0.45
+        ],
+        "low_bias": [
+          0.45,
+          0.85
+        ],
+        "mid_bias": [
+          0.55,
+          0.9
+        ],
+        "high_density": [
+          0.35,
+          0.75
+        ],
+        "backbeat_weight": [
+          0.65,
+          0.95
+        ],
+        "ghost_note_bias": [
+          0.1,
+          0.4
+        ],
+        "hat_openness": [
+          0.05,
+          0.25
+        ],
+        "kick_snare_lock": [
+          0.55,
+          0.9
+        ],
+        "phrase_memory": [
+          0.55,
+          0.9
+        ],
+        "fill_vocabulary": [
+          "snare_roll",
+          "tom_run",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "pocket",
+          "front_heavy",
+          "flat"
+        ],
+        "groove_anchor": [
+          "strong_one"
+        ]
+      },
+      "grooves": {
+        "blues_shuffle": {
+          "identity": "Standard blues shuffle.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.85,
+            "backbeat_variation": 0.2,
+            "ornament_amount": 0.35
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        },
+        "slow_blues": {
+          "identity": "Spacious slow-blues backbeat.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.75,
+            "backbeat_variation": 0.3,
+            "ornament_amount": 0.25
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        }
+      }
+    },
+    "rnb": {
+      "identity": "Pocket-focused soul and modern R&B syncopation.",
+      "default_groove": "rnb_soul",
+      "dna_bounds": {
+        "pulse": [
+          16,
+          16
+        ],
+        "swing": [
+          0.02,
+          0.14
+        ],
+        "syncopation": [
+          0.5,
+          0.95
+        ],
+        "low_bias": [
+          0.35,
+          0.8
+        ],
+        "mid_bias": [
+          0.55,
+          0.95
+        ],
+        "high_density": [
+          0.45,
+          0.9
+        ],
+        "backbeat_weight": [
+          0.55,
+          0.9
+        ],
+        "ghost_note_bias": [
+          0.4,
+          0.9
+        ],
+        "hat_openness": [
+          0.05,
+          0.3
+        ],
+        "kick_snare_lock": [
+          0.25,
+          0.7
+        ],
+        "phrase_memory": [
+          0.45,
+          0.8
+        ],
+        "fill_vocabulary": [
+          "snare_roll",
+          "hat_roll",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "pocket",
+          "flat",
+          "back_heavy"
+        ],
+        "groove_anchor": [
+          "offbeat_push",
+          "floating"
+        ]
+      },
+      "grooves": {
+        "rnb_soul": {
+          "identity": "Warm soul pocket with a stable backbeat.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.7,
+            "backbeat_variation": 0.3,
+            "ornament_amount": 0.65
+          },
+          "anchor": "offbeat_push",
+          "pulse": 16,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        },
+        "rnb_modern": {
+          "identity": "Sparse modern R&B syncopation.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.55,
+            "backbeat_variation": 0.45,
+            "ornament_amount": 0.8
+          },
+          "anchor": "floating",
+          "pulse": 16,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        }
+      }
+    },
+    "country": {
+      "identity": "Two-beat or train-derived country pulse.",
+      "default_groove": "country_train",
+      "dna_bounds": {
+        "pulse": [
+          8,
+          16
+        ],
+        "swing": [
+          0.03,
+          0.16
+        ],
+        "syncopation": [
+          0.1,
+          0.4
+        ],
+        "low_bias": [
+          0.55,
+          0.9
+        ],
+        "mid_bias": [
+          0.55,
+          0.9
+        ],
+        "high_density": [
+          0.35,
+          0.75
+        ],
+        "backbeat_weight": [
+          0.6,
+          0.95
+        ],
+        "ghost_note_bias": [
+          0.05,
+          0.35
+        ],
+        "hat_openness": [
+          0.03,
+          0.22
+        ],
+        "kick_snare_lock": [
+          0.65,
+          0.95
+        ],
+        "phrase_memory": [
+          0.6,
+          0.9
+        ],
+        "fill_vocabulary": [
+          "snare_roll",
+          "tom_run"
+        ],
+        "dynamic_shape": [
+          "flat",
+          "front_heavy"
+        ],
+        "groove_anchor": [
+          "strong_one",
+          "four_on_floor"
+        ]
+      },
+      "grooves": {
+        "country_train": {
+          "identity": "Train-beat country motion.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.85,
+            "backbeat_variation": 0.2,
+            "ornament_amount": 0.3
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        },
+        "two_beat_country": {
+          "identity": "Alternating two-beat country pulse.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.8,
+            "backbeat_variation": 0.25,
+            "ornament_amount": 0.25
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        }
+      }
+    },
+    "funk": {
+      "identity": "Interlocking sixteenth-note syncopation.",
+      "default_groove": "classic_funk",
+      "dna_bounds": {
+        "pulse": [
+          16,
+          16
+        ],
+        "swing": [
+          0.02,
+          0.14
+        ],
+        "syncopation": [
+          0.55,
+          0.95
+        ],
+        "low_bias": [
+          0.45,
+          0.85
+        ],
+        "mid_bias": [
+          0.55,
+          0.95
+        ],
+        "high_density": [
+          0.55,
+          0.95
+        ],
+        "backbeat_weight": [
+          0.55,
+          0.9
+        ],
+        "ghost_note_bias": [
+          0.55,
+          1.0
+        ],
+        "hat_openness": [
+          0.12,
+          0.45
+        ],
+        "kick_snare_lock": [
+          0.35,
+          0.75
+        ],
+        "phrase_memory": [
+          0.55,
+          0.9
+        ],
+        "fill_vocabulary": [
+          "snare_roll",
+          "hat_roll",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "pocket",
+          "flat"
+        ],
+        "groove_anchor": [
+          "offbeat_push",
+          "strong_one",
+          "floating"
+        ]
+      },
+      "grooves": {
+        "classic_funk": {
+          "identity": "Stable sixteenth-note funk pocket.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.65,
+            "backbeat_variation": 0.35,
+            "ornament_amount": 0.7
+          },
+          "anchor": "offbeat_push",
+          "pulse": 16,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        },
+        "syncopated_funk": {
+          "identity": "More displaced and ornamented funk pocket.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.5,
+            "backbeat_variation": 0.5,
+            "ornament_amount": 0.85
+          },
+          "anchor": "offbeat_push",
+          "pulse": 16,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        }
+      }
+    },
+    "reggae": {
+      "identity": "One-drop, rockers, or ska offbeat gravity.",
+      "default_groove": "one_drop",
+      "dna_bounds": {
+        "pulse": [
+          8,
+          16
+        ],
+        "swing": [
+          0.08,
+          0.22
+        ],
+        "syncopation": [
+          0.45,
+          0.85
+        ],
+        "low_bias": [
+          0.3,
+          0.7
+        ],
+        "mid_bias": [
+          0.45,
+          0.85
+        ],
+        "high_density": [
+          0.25,
+          0.65
+        ],
+        "backbeat_weight": [
+          0.2,
+          0.6
+        ],
+        "ghost_note_bias": [
+          0.2,
+          0.65
+        ],
+        "hat_openness": [
+          0.15,
+          0.55
+        ],
+        "kick_snare_lock": [
+          0.1,
+          0.45
+        ],
+        "phrase_memory": [
+          0.55,
+          0.9
+        ],
+        "fill_vocabulary": [
+          "silence",
+          "snare_roll",
+          "mixed"
+        ],
+        "dynamic_shape": [
+          "back_heavy",
+          "pocket",
+          "flat"
+        ],
+        "groove_anchor": [
+          "one_drop"
+        ]
+      },
+      "grooves": {
+        "one_drop": {
+          "identity": "Reggae one-drop gravity on beat three.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.9,
+            "backbeat_variation": 0.1,
+            "ornament_amount": 0.25
+          },
+          "anchor": "one_drop",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        },
+        "rockers": {
+          "identity": "Quarter-note reggae rockers pulse.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.8,
+            "backbeat_variation": 0.2,
+            "ornament_amount": 0.4
+          },
+          "anchor": "strong_one",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        },
+        "ska_offbeat": {
+          "identity": "Fast ska offbeat emphasis.",
+          "energy_neutral": true,
+          "profile": {
+            "skeleton_strength": 0.7,
+            "backbeat_variation": 0.3,
+            "ornament_amount": 0.6
+          },
+          "anchor": "offbeat_push",
+          "pulse": 8,
+          "meters": [
+            "4/4",
+            "6/8",
+            "3/4"
+          ],
+          "pattern": null
+        }
+      }
+    }
+  }
+}
