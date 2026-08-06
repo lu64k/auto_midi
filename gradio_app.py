@@ -22,9 +22,11 @@ from auto_midi.settings import settings
 from auto_midi.time_signature import SUPPORTED_TIME_SIGNATURES, parse_time_signature
 from auto_midi.text_parser import parse_text
 from auto_midi.wav_preview import render_preview_wav
+from auto_midi.work_history import WorkHistoryStore
 
 
 ROOT = Path(__file__).resolve().parent
+HISTORY_STORE = WorkHistoryStore(ROOT / "data" / "work_history")
 DEFAULT_KIT = settings.sample_kit
 DEFAULT_SECTION_CONFIG = (ROOT / "test" / "example1" / "drum_section_config.json").read_text(encoding="utf-8")
 
@@ -605,11 +607,119 @@ def _build_demo_legacy() -> gr.Blocks:
     return demo
 
 
+def _history_dropdown(value: str | None = None):
+    return gr.Dropdown(choices=HISTORY_STORE.titles(), value=value)
+
+
+def _save_active_work(
+    active_title: str | None,
+    entered_title: str | None,
+    lyrics: str | None,
+    feel_json: str | None,
+    execution_json: str | None,
+):
+    record = HISTORY_STORE.save(
+        active_title or entered_title,
+        lyrics,
+        feel_json,
+        execution_json,
+    )
+    return (
+        record.title,
+        record.title,
+        _history_dropdown(record.title),
+        f"已保存：{record.title}（{record.updated_at}）",
+    )
+
+
+def _resolve_work_title(
+    entered_title: str | None,
+    active_title: str | None,
+    lyrics: str | None,
+    feel_json: str | None,
+    execution_json: str | None,
+):
+    target = str(entered_title or "").strip()
+    active = str(active_title or "").strip()
+    if active and active.casefold() != target.casefold():
+        HISTORY_STORE.save(active, lyrics, feel_json, execution_json)
+    existing = HISTORY_STORE.load(target)
+    if existing is not None:
+        return (
+            existing.title,
+            existing.title,
+            _history_dropdown(existing.title),
+            existing.lyrics_and_requirements,
+            existing.feel_plan_json,
+            existing.execution_config_json,
+            f"已读取：{existing.title}",
+        )
+    record = HISTORY_STORE.save(target, lyrics, feel_json, execution_json)
+    return (
+        record.title,
+        record.title,
+        _history_dropdown(record.title),
+        record.lyrics_and_requirements,
+        record.feel_plan_json,
+        record.execution_config_json,
+        f"已新建：{record.title}",
+    )
+
+
+def _load_history_work(
+    selected_title: str | None,
+    active_title: str | None,
+    entered_title: str | None,
+    lyrics: str | None,
+    feel_json: str | None,
+    execution_json: str | None,
+):
+    active = str(active_title or entered_title or "").strip()
+    selected = str(selected_title or "").strip()
+    if active and selected and active.casefold() != selected.casefold():
+        HISTORY_STORE.save(active, lyrics, feel_json, execution_json)
+    record = HISTORY_STORE.load(selected)
+    if record is None:
+        return (
+            active_title,
+            entered_title,
+            _history_dropdown(active or None),
+            lyrics,
+            feel_json,
+            execution_json,
+            "未找到所选历史记录",
+        )
+    return (
+        record.title,
+        record.title,
+        _history_dropdown(record.title),
+        record.lyrics_and_requirements,
+        record.feel_plan_json,
+        record.execution_config_json,
+        f"已读取：{record.title}",
+    )
+
+
 def build_demo() -> gr.Blocks:
     """Build the compact three-tab Gradio interface."""
 
     with gr.Blocks(title="Auto MIDI - Drum DNA") as demo:
         gr.Markdown("输入歌词和自然语言编曲需求，依次生成 Feel 计划、执行配置和鼓点。")
+
+        active_title = gr.State(value="")
+        with gr.Row():
+            work_title = gr.Textbox(
+                label="作品标题",
+                placeholder="留空时自动使用日期命名",
+                scale=1,
+            )
+            history_dropdown = gr.Dropdown(
+                label="历史作品",
+                choices=HISTORY_STORE.titles(),
+                value=None,
+                scale=1,
+            )
+        history_status = gr.Markdown("尚未保存")
 
         lyrics = gr.Textbox(
             label="歌词 / 自然语言需求",
@@ -671,19 +781,64 @@ def build_demo() -> gr.Blocks:
             midi = gr.File(label="MIDI 下载")
         summary = gr.JSON(label="处理摘要")
 
-        read_requirements_button.click(
+        history_load_outputs = [
+            active_title,
+            work_title,
+            history_dropdown,
+            lyrics,
+            feel_output,
+            execution_output,
+            history_status,
+        ]
+        title_inputs = [work_title, active_title, lyrics, feel_output, execution_output]
+        work_title.submit(
+            fn=_resolve_work_title,
+            inputs=title_inputs,
+            outputs=history_load_outputs,
+            concurrency_limit=1,
+        )
+        work_title.blur(
+            fn=_resolve_work_title,
+            inputs=title_inputs,
+            outputs=history_load_outputs,
+            concurrency_limit=1,
+        )
+        history_dropdown.change(
+            fn=_load_history_work,
+            inputs=[history_dropdown, active_title, work_title, lyrics, feel_output, execution_output],
+            outputs=history_load_outputs,
+            concurrency_limit=1,
+        )
+
+        save_inputs = [active_title, work_title, lyrics, feel_output, execution_output]
+        save_outputs = [active_title, work_title, history_dropdown, history_status]
+        lyrics.blur(fn=_save_active_work, inputs=save_inputs, outputs=save_outputs, concurrency_limit=1)
+        feel_output.change(fn=_save_active_work, inputs=save_inputs, outputs=save_outputs, concurrency_limit=1)
+        execution_output.change(fn=_save_active_work, inputs=save_inputs, outputs=save_outputs, concurrency_limit=1)
+
+        read_event = read_requirements_button.click(
             fn=read_requirements,
             inputs=[lyrics, bpm, time_signature],
             outputs=[song_structure_json, feel_output, summary],
             concurrency_limit=1,
         )
-        compile_execution_button.click(
+        read_event.then(fn=_save_active_work, inputs=save_inputs, outputs=save_outputs, concurrency_limit=1)
+
+        execution_event = compile_execution_button.click(
             fn=generate_execution_form,
             inputs=[song_structure_json, feel_output, preset, groove, seed],
             outputs=[execution_output],
             concurrency_limit=1,
         )
-        generate.click(
+        execution_event.then(fn=_save_active_work, inputs=save_inputs, outputs=save_outputs, concurrency_limit=1)
+
+        save_before_generate = generate.click(
+            fn=_save_active_work,
+            inputs=save_inputs,
+            outputs=save_outputs,
+            concurrency_limit=1,
+        )
+        save_before_generate.then(
             fn=render_song,
             inputs=[
                 lyrics,

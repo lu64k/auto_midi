@@ -10,6 +10,7 @@ htmlcov/
 venv/
 .env
 outputs/
+data/work_history/
 samples/
 judd-madden-drum-samples/
 drumkit/
