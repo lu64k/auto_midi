@@ -8,9 +8,19 @@ from pathlib import Path
 from typing import Any
 
 from .drum_rack import GENERAL_MIDI_DRUMS
+from .groove import GROOVE_PROFILES
 
 
 FILL_MODES = ("none", "every_4", "last_bar", "last_2_bars", "section_end")
+VOICE_PLACEMENTS = (
+    "auto", "section_start", "section_end", "first_bar", "last_bar",
+    "every_bar", "phrase_start", "phrase_end",
+)
+CYMBAL_ROLES = (
+    "none", "closed_hat_quarters", "closed_hat_eighths",
+    "open_hat_quarters", "ride_quarters", "ride_eighths",
+    "ride_bell_offbeats",
+)
 
 VOICE_ALIASES = {
     "bass_drum": "kick",
@@ -46,6 +56,11 @@ class SectionConfig:
     fill_mode: str = "section_end"
     allowed_voices: tuple[str, ...] | None = None
     required_voices: tuple[str, ...] = ()
+    voice_placements: dict[str, str] = field(default_factory=dict)
+    groove: str | None = None
+    cymbal_role: str | None = None
+    intensity_curve: tuple[tuple[int, float], ...] = ()
+    density_curve: tuple[tuple[int, float], ...] = ()
     dna_overrides: dict[str, Any] = field(default_factory=dict)
     section_type: str | None = None
     chord_bars: tuple[tuple[str, ...], ...] = ()
@@ -79,6 +94,11 @@ def parse_section_config(payload: Any) -> tuple[SectionConfig, ...]:
             fill_mode=str(raw.get("fill_mode", "section_end")),
             allowed_voices=_optional_voices(raw.get("allowed"), index),
             required_voices=_optional_voices(raw.get("required"), index) or (),
+            voice_placements=_voice_placements(raw.get("voice_placements", {}), index),
+            groove=_optional_text(raw.get("groove")),
+            cymbal_role=_optional_text(raw.get("cymbal_role")),
+            intensity_curve=_curve(raw.get("intensity_curve", []), "intensity_curve", index),
+            density_curve=_curve(raw.get("density_curve", []), "density_curve", index),
             dna_overrides=dict(raw.get("dna_overrides", {})),
             section_type=_optional_text(raw.get("type")),
             chord_bars=_optional_chord_bars(raw.get("chord_bars", raw.get("chords", [])), index),
@@ -93,8 +113,16 @@ def parse_section_config(payload: Any) -> tuple[SectionConfig, ...]:
         _check_range(section.fill, 0, 100, "fill", index)
         if section.fill_mode not in FILL_MODES:
             raise ValueError(f"section {index} fill_mode must be one of {FILL_MODES}")
+        if section.groove is not None and section.groove not in GROOVE_PROFILES:
+            raise ValueError(f"section {index} contains unknown groove: {section.groove}")
+        if section.cymbal_role is not None and section.cymbal_role not in CYMBAL_ROLES:
+            raise ValueError(f"section {index} cymbal_role must be one of {CYMBAL_ROLES}")
         if section.allowed_voices and not set(section.required_voices).issubset(section.allowed_voices):
             raise ValueError(f"section {index} required voices must be included in allowed voices")
+        if section.allowed_voices and not set(section.voice_placements).issubset(section.allowed_voices):
+            raise ValueError(f"section {index} placed voices must be included in allowed voices")
+        _validate_curve(section.intensity_curve, section.bars, 0, 100, "intensity_curve", index)
+        _validate_curve(section.density_curve, section.bars, 0.0, 1.0, "density_curve", index)
         sections.append(section)
     return tuple(sections)
 
@@ -124,6 +152,50 @@ def _optional_voices(value: Any, index: int) -> tuple[str, ...] | None:
     if unknown:
         raise ValueError(f"section {index} contains unknown drum voices: {', '.join(unknown)}")
     return voices
+
+
+def _voice_placements(value: Any, index: int) -> dict[str, str]:
+    if value in (None, {}):
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"section {index} voice_placements must be an object")
+    result: dict[str, str] = {}
+    for raw_voice, raw_placement in value.items():
+        voices = _optional_voices([raw_voice], index)
+        voice = voices[0] if voices else ""
+        placement = str(raw_placement).strip().lower()
+        if placement not in VOICE_PLACEMENTS:
+            raise ValueError(f"section {index} voice placement must be one of {VOICE_PLACEMENTS}")
+        result[voice] = placement
+    return result
+
+
+def _curve(value: Any, field_name: str, index: int) -> tuple[tuple[int, float], ...]:
+    if value in (None, []):
+        return ()
+    if not isinstance(value, list):
+        raise ValueError(f"section {index} {field_name} must be a list")
+    points = []
+    for point in value:
+        if not isinstance(point, dict) or "bar" not in point or "value" not in point:
+            raise ValueError(f"section {index} {field_name} points need bar and value")
+        points.append((int(point["bar"]), float(point["value"])))
+    return tuple(points)
+
+
+def _validate_curve(
+    curve: tuple[tuple[int, float], ...], bars: int, low: float, high: float,
+    field_name: str, index: int,
+) -> None:
+    if not curve:
+        return
+    curve_bars = [bar for bar, _ in curve]
+    if curve_bars != sorted(set(curve_bars)):
+        raise ValueError(f"section {index} {field_name} bars must be unique and ascending")
+    if any(bar < 1 or bar > bars for bar in curve_bars):
+        raise ValueError(f"section {index} {field_name} bar must be within the section")
+    if any(value < low or value > high for _, value in curve):
+        raise ValueError(f"section {index} {field_name} values must be between {low} and {high}")
 
 
 def _optional_chord_bars(value: Any, index: int) -> tuple[tuple[str, ...], ...]:

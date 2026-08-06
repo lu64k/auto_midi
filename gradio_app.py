@@ -65,6 +65,11 @@ def _execution_config_payload(configs):
                 "fill_mode": config.fill_mode,
                 "allowed": list(config.allowed_voices or []),
                 "required": list(config.required_voices),
+                "voice_placements": config.voice_placements,
+                "groove": config.groove,
+                "cymbal_role": config.cymbal_role,
+                "intensity_curve": [{"bar": bar, "value": value} for bar, value in config.intensity_curve],
+                "density_curve": [{"bar": bar, "value": value} for bar, value in config.density_curve],
                 "chord_bars": [list(bar) for bar in config.chord_bars],
                 "dna_overrides": config.dna_overrides,
             }

@@ -36,7 +36,11 @@ class FakeClient:
 
 
 class ExecutionFakeClient:
+    def __init__(self):
+        self.system_prompt = ""
+
     def complete_json(self, system_prompt: str, user_prompt: str, seed: int):
+        self.system_prompt = system_prompt
         return {
             "sections": [
                 {
@@ -51,6 +55,10 @@ class ExecutionFakeClient:
                     "fill_mode": "section_end",
                     "allowed": [],
                     "required": ["snare"],
+                    "voice_placements": {"snare": "section_start"},
+                    "groove": "sparse_rock",
+                    "cymbal_role": "closed_hat_quarters",
+                    "intensity_curve": [{"bar": 1, "value": 35}, {"bar": 2, "value": 45}],
                     "dna_overrides": {"backbeat_weight": 0.9},
                 }
             ]
@@ -58,7 +66,11 @@ class ExecutionFakeClient:
 
 
 class SongPlanFakeClient:
+    def __init__(self):
+        self.system_prompt = ""
+
     def complete_json(self, system_prompt: str, user_prompt: str, seed: int):
+        self.system_prompt = system_prompt
         return {
             "structure": {
                 "title": "demo",
@@ -137,13 +149,20 @@ class LLMTests(unittest.TestCase):
             }
         )
         feel = LLMDrumFeelAgent(FakeClient()).generate(structure, "rock", "classic_rock", seed=7)
-        config = LLMDrumExecutionAgent(ExecutionFakeClient()).generate(structure, feel, seed=7)[0]
+        client = ExecutionFakeClient()
+        config = LLMDrumExecutionAgent(client).generate(structure, feel, seed=7)[0]
         self.assertEqual(config.name, "verse_1")
         self.assertEqual(config.chord_bars, (("E",), ("B",)))
         self.assertEqual(config.required_voices, ("snare",))
+        self.assertEqual(config.voice_placements, {"snare": "section_start"})
+        self.assertEqual(config.groove, "sparse_rock")
+        self.assertEqual(config.cymbal_role, "closed_hat_quarters")
+        self.assertIn("whole section", client.system_prompt)
+        self.assertIn("voice_placements", client.system_prompt)
 
     def test_song_plan_repeats_short_chord_progression(self) -> None:
-        structure, feels = LLMDrumFeelAgent(SongPlanFakeClient()).generate_from_requirements(
+        client = SongPlanFakeClient()
+        structure, feels = LLMDrumFeelAgent(client).generate_from_requirements(
             "verse 8 bars: E B C#m A",
             120,
             "4/4",
@@ -154,6 +173,11 @@ class LLMTests(unittest.TestCase):
         self.assertEqual(len(structure.sections[0].chord_bars), 8)
         self.assertEqual(structure.sections[0].chord_bars[4], ("E",))
         self.assertEqual(feels[0].description, "restrained verse that builds toward the chorus")
+        for voice in (
+            "kick", "rim", "snare", "clap", "low_tom", "mid_tom",
+            "closed_hat", "open_hat", "crash", "ride",
+        ):
+            self.assertIn(voice, client.system_prompt)
 
     def test_song_plan_restores_authored_slash_chord(self) -> None:
         structure, feels = LLMDrumFeelAgent(SlashChordFakeClient()).generate_from_requirements(

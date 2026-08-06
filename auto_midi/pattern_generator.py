@@ -8,6 +8,7 @@ from .section_config import SectionConfig
 from .text_parser import BarText, TextMap
 from .time_signature import TimeSignature, parse_time_signature
 from .rock_patterns import pattern_steps, rock_pattern
+from .groove import GROOVE_ANCHORS, GROOVE_PROFILES, GROOVE_PULSES
 
 
 STEPS_PER_BAR = 16
@@ -52,12 +53,17 @@ def generate_events(
     for bar in text_map.bars:
         section = _section_for_bar(text_map, bar, section_configs)
         section_position = _section_position(text_map, bar)
-        bar_intensity = _interpolate(
+        section_bar = _section_bar_number(text_map, bar)
+        bar_intensity = _curve_or_interpolate(
+            section.intensity_curve if section else (),
+            section_bar,
             section.intensity_start if section and section.intensity_start is not None else intensity,
             section.intensity_end if section and section.intensity_end is not None else intensity,
             section_position,
         )
-        bar_density = _interpolate(
+        bar_density = _curve_or_interpolate(
+            section.density_curve if section else (),
+            section_bar,
             section.density_start if section and section.density_start is not None else 0.5,
             section.density_end if section and section.density_end is not None else 0.5,
             section_position,
@@ -71,20 +77,20 @@ def generate_events(
         bar_events.extend(_memory_events(bar, bar_dna, rng, previous_bar_events))
         bar_events.extend(_low_events(bar, bar_dna, rng, base_velocity, accents, rests))
         bar_events.extend(_mid_events(bar, bar_dna, rng, base_velocity, accents, rests))
-        bar_events.extend(_high_events(bar, bar_dna, rng, base_velocity, accents, rests))
+        bar_events.extend(_high_events(bar, bar_dna, rng, base_velocity, accents, rests, section))
 
         if should_fill(bar, bar_dna, rng, bar_fill, section, section_position):
             bar_events.extend(_fill_events(bar, bar_dna, rng, base_velocity))
 
-        if bar.index == 0 or bar.section != text_map.bars[bar.index - 1].section:
+        if section is None and (bar.index == 0 or bar.section != text_map.bars[bar.index - 1].section):
             bar_events.append(DrumEvent(bar.index, 0, "crash", _vel(base_velocity + 18, rng)))
 
         bar_events = _filter_allowed_voices(bar_events, section)
-        bar_events = _ensure_required_voices(bar_events, bar.index, section, base_velocity)
         bar_events = _apply_dynamic_shape(bar_events, bar_dna)
         events.extend(bar_events)
         previous_bar_events = bar_events
 
+    events = _ensure_section_voice_rules(events, text_map, section_configs)
     bar_length_ticks = STEPS_PER_BAR * TICKS_PER_STEP
     events = [replace(event, bar_length_ticks=bar_length_ticks) for event in _dedupe(events)]
     return sorted(events, key=lambda event: (event.absolute_tick, event.voice))
@@ -136,8 +142,11 @@ def should_fill(
         return False
     if section and section.fill_mode == "last_bar" and section_position < 0.999:
         return False
-    if section and section.fill_mode == "last_2_bars" and section_position < 0.5:
-        return False
+    if section and section.fill_mode == "last_2_bars":
+        first_allowed = max(1, section.bars - 1)
+        current_bar = 1 if section.bars <= 1 else round(section_position * (section.bars - 1)) + 1
+        if current_bar < first_allowed:
+            return False
     if section and section.fill_mode == "section_end" and not bar.ends_section:
         return False
     chance = fill / 100.0 * dna.fill_aggression
@@ -177,6 +186,11 @@ def _section_position(text_map: TextMap, bar: BarText) -> float:
     return section_bars.index(bar) / (len(section_bars) - 1)
 
 
+def _section_bar_number(text_map: TextMap, bar: BarText) -> int:
+    section_bars = [item for item in text_map.bars if item.section == bar.section]
+    return section_bars.index(bar) + 1
+
+
 def _apply_section_dna(
     dna: DrummerDNA,
     section: SectionConfig | None,
@@ -184,16 +198,29 @@ def _apply_section_dna(
 ) -> DrummerDNA:
     if section is None:
         return dna
-    values = dict(section.dna_overrides)
-    for key in values:
+    overrides = dict(section.dna_overrides)
+    for key in overrides:
         if not hasattr(dna, key):
             raise ValueError(f"unknown DrummerDNA override: {key}")
         if key == "style":
             raise ValueError("section-level style override is not supported")
+    values = {}
+    if section.groove:
+        values.update(GROOVE_PROFILES[section.groove])
+        values["groove"] = section.groove
+        values["groove_anchor"] = GROOVE_ANCHORS[section.groove]
+        values["pulse"] = GROOVE_PULSES.get(section.groove, dna.pulse)
+    values.update(overrides)
     density_scale = max(0.0, min(2.0, density * 2.0))
     for key in ("low_bias", "mid_bias", "high_density"):
-        if key not in values:
+        if key not in overrides:
             values[key] = max(0.0, min(1.0, getattr(dna, key) * density_scale))
+    if "skeleton_strength" not in overrides:
+        base = float(values.get("skeleton_strength", dna.skeleton_strength))
+        values["skeleton_strength"] = max(0.02, min(1.0, base * min(1.0, density_scale)))
+    if "ornament_amount" not in overrides:
+        base = float(values.get("ornament_amount", dna.ornament_amount))
+        values["ornament_amount"] = max(0.0, min(1.0, base * min(1.25, density_scale)))
     return replace(dna, **values)
 
 
@@ -204,23 +231,81 @@ def _filter_allowed_voices(events: list[DrumEvent], section: SectionConfig | Non
     return [event for event in events if event.voice in allowed]
 
 
-def _ensure_required_voices(
+def _ensure_section_voice_rules(
     events: list[DrumEvent],
-    bar_index: int,
-    section: SectionConfig | None,
-    base_velocity: int,
+    text_map: TextMap,
+    section_configs: tuple[SectionConfig, ...] | None,
 ) -> list[DrumEvent]:
-    if section is None or not section.required_voices:
+    if not section_configs:
         return events
-    present = {event.voice for event in events}
-    for voice in section.required_voices:
-        if voice not in present:
-            events.append(DrumEvent(bar_index, 0, voice, max(1, min(127, base_velocity + 8))))
-    return events
+    result = list(events)
+    occupied = {(event.bar, event.step, event.voice) for event in result}
+    for section_index, section in enumerate(section_configs):
+        bars = [bar for bar in text_map.bars if bar.section == section_index]
+        if not bars:
+            continue
+        section_events = [event for event in result if event.bar in {bar.index for bar in bars}]
+        voices = tuple(dict.fromkeys((*section.required_voices, *section.voice_placements.keys())))
+        for voice in voices:
+            placement = section.voice_placements.get(voice, "auto")
+            if placement == "auto" and any(event.voice == voice for event in section_events):
+                continue
+            for bar_index, step in _voice_targets(voice, placement, bars):
+                key = (bar_index, step, voice)
+                if key in occupied:
+                    continue
+                local_bar = next(index for index, bar in enumerate(bars, start=1) if bar.index == bar_index)
+                position = 1.0 if len(bars) <= 1 else (local_bar - 1) / (len(bars) - 1)
+                start = section.intensity_start if section.intensity_start is not None else 50
+                end = section.intensity_end if section.intensity_end is not None else start
+                intensity = _curve_or_interpolate(section.intensity_curve, local_bar, start, end, position)
+                velocity = max(1, min(127, int(53 + intensity * 0.55)))
+                result.append(DrumEvent(bar_index, step, voice, velocity))
+                occupied.add(key)
+    return result
+
+
+def _voice_targets(voice: str, placement: str, bars: list[BarText]) -> list[tuple[int, int]]:
+    if placement == "auto":
+        if voice in {"snare", "rim", "clap"}:
+            return [(bars[0].index, min(_backbeat_steps()))]
+        return [(bars[0].index, 0)]
+    if placement in {"section_start", "first_bar"}:
+        return [(bars[0].index, 0)]
+    if placement == "section_end":
+        return [(bars[-1].index, STEPS_PER_BAR - 1)]
+    if placement == "last_bar":
+        return [(bars[-1].index, 0)]
+    if placement == "every_bar":
+        return [(bar.index, 0) for bar in bars]
+    targets = []
+    for bar in bars:
+        for phrase in bar.phrases:
+            syllable = phrase.start_syllable if placement == "phrase_start" else phrase.end_syllable
+            step = min(STEPS_PER_BAR - 1, round(syllable * STEPS_PER_BAR / max(1, bar.char_count)))
+            targets.append((bar.index, step))
+    return targets or [(bars[0].index, 0)]
 
 
 def _interpolate(start: float, end: float, position: float) -> float:
     return start + (end - start) * max(0.0, min(1.0, position))
+
+
+def _curve_or_interpolate(
+    curve: tuple[tuple[int, float], ...], bar_number: int,
+    start: float, end: float, position: float,
+) -> float:
+    if not curve:
+        return _interpolate(start, end, position)
+    if bar_number <= curve[0][0]:
+        return curve[0][1]
+    if bar_number >= curve[-1][0]:
+        return curve[-1][1]
+    for (left_bar, left_value), (right_bar, right_value) in zip(curve, curve[1:]):
+        if left_bar <= bar_number <= right_bar:
+            local = (bar_number - left_bar) / max(1, right_bar - left_bar)
+            return _interpolate(left_value, right_value, local)
+    return curve[-1][1]
 
 
 def _low_events(
@@ -261,7 +346,7 @@ def _mid_events(
     for step, boost in _anchor_mid_steps(dna):
         pattern = rock_pattern(dna.groove)
         anchor_chance = (
-            1.0 - dna.backbeat_variation * 0.10
+            0.15 + dna.skeleton_strength * 0.85
             if pattern
             else max(
                 0.75,
@@ -299,8 +384,11 @@ def _high_events(
     base_velocity: int,
     accents: set[int],
     rests: set[int],
+    section: SectionConfig | None,
 ) -> list[DrumEvent]:
     events: list[DrumEvent] = []
+    if section and section.cymbal_role:
+        return _cymbal_role_events(bar, section.cymbal_role, rng, base_velocity)
     interval = 4 if dna.pulse == 4 else 2 if dna.pulse == 8 else 1
     pattern = rock_pattern(dna.groove)
     hat_steps = pattern_steps(pattern, "hat_steps", STEPS_PER_BAR) if pattern else tuple(range(0, STEPS_PER_BAR, interval))
@@ -311,7 +399,7 @@ def _high_events(
             continue
         if not pattern and step in rests and rng.random() < dna.rest_follow:
             continue
-        hat_chance = 1.0 if pattern else max(dna.high_density, 0.25 + dna.skeleton_strength * 0.65)
+        hat_chance = 0.15 + dna.skeleton_strength * 0.85 if pattern else max(dna.high_density, 0.25 + dna.skeleton_strength * 0.65)
         if rng.random() < hat_chance:
             velocity = base_velocity - 18 + (9 if step in accents else 0)
             voice = _hat_voice(step, dna, rng)
@@ -324,6 +412,20 @@ def _high_events(
     if rng.random() < dna.syncopation * (0.2 + dna.hat_openness * 0.45) * dna.ornament_amount:
         events.append(DrumEvent(bar.index, rng.choice(_eighth_steps(3, 5, 7)), "open_hat", _vel(base_velocity - 6, rng)))
     return events
+
+
+def _cymbal_role_events(bar: BarText, role: str, rng: random.Random, base_velocity: int) -> list[DrumEvent]:
+    if role == "none":
+        return []
+    voice = "ride" if role.startswith("ride") else "open_hat" if role.startswith("open_hat") else "closed_hat"
+    if role.endswith("quarters"):
+        steps = range(0, STEPS_PER_BAR, max(1, STEPS_PER_BAR // 4))
+    elif role == "ride_bell_offbeats":
+        step_size = max(1, STEPS_PER_BAR // 4)
+        steps = range(step_size // 2, STEPS_PER_BAR, step_size)
+    else:
+        steps = range(0, STEPS_PER_BAR, max(1, STEPS_PER_BAR // 8))
+    return [DrumEvent(bar.index, step, voice, _vel(base_velocity - 14, rng)) for step in steps]
 
 
 def _fill_events(bar: BarText, dna: DrummerDNA, rng: random.Random, base_velocity: int) -> list[DrumEvent]:
@@ -394,7 +496,10 @@ def _anchor_kick_steps(dna: DrummerDNA, rng: random.Random) -> list[tuple[int, i
     pattern = rock_pattern(dna.groove)
     if pattern:
         kick_steps = pattern_steps(pattern, "kick_steps", STEPS_PER_BAR)
-        return [(step, 12 if step == kick_steps[0] else 4) for step in kick_steps]
+        result = [(kick_steps[0], 12)]
+        keep_chance = 0.10 + dna.skeleton_strength * 0.90
+        result.extend((step, 4) for step in kick_steps[1:] if rng.random() < keep_chance)
+        return result
     if dna.groove_anchor == "one_drop":
         return [(8, 10)]
     if dna.groove_anchor == "four_on_floor":

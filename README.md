@@ -211,6 +211,36 @@ empty list to allow all voices:
 }
 ```
 
+`required` means that a voice must occur at least once in the whole section; it
+does not force that voice into every bar. Use `voice_placements` when the
+location matters:
+
+```json
+{
+  "name": "outro",
+  "bars": 8,
+  "groove": "post_rock_release",
+  "allowed": ["kick", "snare", "closed_hat", "crash"],
+  "required": ["crash"],
+  "voice_placements": {"crash": "section_end"},
+  "cymbal_role": "closed_hat_quarters",
+  "intensity_curve": [
+    {"bar": 1, "value": 20},
+    {"bar": 8, "value": 5}
+  ],
+  "density_curve": [
+    {"bar": 1, "value": 0.15},
+    {"bar": 8, "value": 0.03}
+  ]
+}
+```
+
+Supported voice placements are `auto`, `section_start`, `section_end`,
+`first_bar`, `last_bar`, `every_bar`, `phrase_start`, and `phrase_end`.
+Supported cymbal roles are `none`, `closed_hat_quarters`,
+`closed_hat_eighths`, `open_hat_quarters`, `ride_quarters`, `ride_eighths`, and
+`ride_bell_offbeats`. Curves override the linear start/end values.
+
 Presets are style boundaries for generating a new drummer DNA. They are not
 fixed drum patterns.
 

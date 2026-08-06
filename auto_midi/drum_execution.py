@@ -6,6 +6,7 @@ from dataclasses import replace
 import json
 
 from .drum_feel import DrumFeel
+from .groove import GROOVE_PROFILES
 from .section_config import SectionConfig, parse_section_config
 from .song_structure import SongStructure, resolved_chord_bars
 
@@ -39,6 +40,7 @@ def compile_execution_config(
                 fill_mode=_fill_mode(section.bars, feel.fill_level),
                 allowed_voices=feel.allowed_voices,
                 required_voices=feel.required_voices,
+                groove=feel.groove if feel.groove in GROOVE_PROFILES else None,
                 section_type=section.type,
                 chord_bars=resolved_chord_bars(structure, section.id),
                 repeat_of=section.repeat_of,
@@ -70,6 +72,11 @@ def execution_config_payload(configs: tuple[SectionConfig, ...]) -> dict:
                 "fill_mode": config.fill_mode,
                 "allowed": list(config.allowed_voices or []),
                 "required": list(config.required_voices),
+                "voice_placements": config.voice_placements,
+                "groove": config.groove,
+                "cymbal_role": config.cymbal_role,
+                "intensity_curve": [{"bar": bar, "value": value} for bar, value in config.intensity_curve],
+                "density_curve": [{"bar": bar, "value": value} for bar, value in config.density_curve],
                 "chord_bars": [list(bar) for bar in config.chord_bars],
                 "dna_overrides": config.dna_overrides,
             }
@@ -147,16 +154,44 @@ def build_drum_execution_agent():
 
 _SYSTEM_PROMPT = """You are a drum execution-config compiler. Return JSON only.
 Convert each semantic section feeling into exactly one executable section.
-You are responsible for choosing all numeric implementation values from the
-musical descriptions, section relationships, dynamics, instrument roles, and
-transition intent. Preserve section name and bars exactly. Use fields: name, type, bars, intensity_start,
+Choose all implementation values from the musical descriptions, section
+relationships, dynamics, instrument roles, and transition intent. Preserve
+section name and bars exactly. Use fields: name, type, bars, intensity_start,
 intensity_end (0-100), density_start, density_end (0-1), fill (0-100),
 fill_mode (none/every_4/last_bar/last_2_bars/section_end), allowed (array or
-empty array), required (array), and dna_overrides. Empty allowed means all
-voices are available. required voices must be included in allowed when allowed
-is non-empty. Use only valid drum voices: kick, rim, snare, clap, low_tom,
-mid_tom, closed_hat, open_hat, crash, ride. Use these exact identifiers; write
-closed_hat or open_hat, never hi-hat/hihat/hat. Return {\"sections\": [...]}."""
+empty array), required (array), voice_placements (object), groove, cymbal_role,
+optional intensity_curve/density_curve arrays of {bar,value}, and dna_overrides.
+
+Empty allowed means all voices are available. required means each listed voice
+must occur at least once somewhere in the whole section; it never means once
+per bar. required voices must be included in allowed when allowed is non-empty.
+voice_placements may map a voice to auto, section_start, section_end, first_bar,
+last_bar, every_bar, phrase_start, or phrase_end. Use section_end for a final
+outro crash; use every_bar only when a hit on every bar is musically intended.
+
+Use only valid drum voices: kick, rim, snare, clap, low_tom, mid_tom,
+closed_hat, open_hat, crash, ride. Use these exact identifiers; write
+closed_hat or open_hat, never hi-hat/hihat/hat.
+
+Use only valid grooves: free, boom_bap, hiphop, trap, minimal, classic_rock,
+driving_rock, half_time_rock, sparse_rock, shuffle_rock, blues_rock, punk_rock,
+indie_rock, hard_rock, arena_rock, double_kick_rock, half_time_hard_rock,
+sparse_dream, washed_8th, post_rock_build, post_rock_peak, post_rock_release,
+psych_shuffle, psych_groove, motorik_rock, swing_ride, jazz_waltz,
+blues_shuffle, slow_blues, rnb_soul, rnb_modern, country_train,
+two_beat_country, classic_funk, syncopated_funk, one_drop, rockers,
+ska_offbeat. Choose a section-specific groove from the semantic brief.
+
+cymbal_role may be none, closed_hat_quarters, closed_hat_eighths,
+open_hat_quarters, ride_quarters, ride_eighths, or ride_bell_offbeats. Use this
+for a sustained Hat/Ride pattern; do not misuse required for a continuous
+cymbal role. Curves override linear start/end values and are appropriate for
+rise-then-fall sections. dna_overrides may use DrummerDNA fields such as
+backbeat_weight, syncopation, swing, mutation, skeleton_strength,
+backbeat_variation, ornament_amount, hat_openness, fill_vocabulary,
+dynamic_shape, groove_anchor, pulse, low_bias, mid_bias, and high_density.
+Do not put groove inside dna_overrides; use the top-level groove field.
+Return {\"sections\": [...]}."""
 
 
 def _percent(value: float) -> int:

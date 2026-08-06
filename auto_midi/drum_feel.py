@@ -337,8 +337,11 @@ Create exactly one feel object for every input section, in the same order and
 with the same section_id. Do not invent chords: chord_context must be empty
 when the input section has no chords. Use values from 0 to 1 for every numeric
 feel field. allowed_voices=[] or null means all drum voices are allowed;
-required_voices is only for voices that must occur. Prefer existing groove
-names. The output root must be {\"sections\": [...]}. Each object must contain:
+required_voices is only for voices that must occur. For both fields, use only
+these exact drum voice identifiers: kick, rim, snare, clap, low_tom, mid_tom,
+closed_hat, open_hat, crash, ride. Never use aliases such as hi-hat, hihat,
+hat, floor tom, bass drum, or cymbal. Prefer existing groove names. The output
+root must be {\"sections\": [...]}. Each object must contain:
 section_id, section_type, groove, description, energy, density,
 backbeat_strength, syncopation, swing, variation, fill_level, crash_usage,
 dropout, chord_context, allowed_voices, required_voices.
@@ -438,7 +441,10 @@ the actual neighboring section ids, or state that there is no neighbor at the
 song boundary. Describe musical gestures in natural language: pulse placement,
 space, accents, orchestration, buildup, release, dropouts, and transitions.
 allowed_voices=[] or null means all drum voices are allowed. required_voices
-contains only instruments that must occur. Return no Markdown fences.
+contains only instruments that must occur. For both fields, use only these
+exact drum voice identifiers: kick, rim, snare, clap, low_tom, mid_tom,
+closed_hat, open_hat, crash, ride. Never use aliases such as hi-hat, hihat,
+hat, floor tom, bass drum, or cymbal. Return no Markdown fences.
 """
 
 
